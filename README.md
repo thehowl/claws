@@ -52,4 +52,4 @@ Letter   | Meaning
 
 ## Caveat emptor
 
-claws is software in early development. It may often not work as intended. Whenever you see something odd, or you have a proposal to make, please open up an issue for discussion.
+claws is software in early development. It may often not work as intended. Whenever you see something odd, or you have a proposal to make, please [open up an issue](https://github.com/thehowl/claws/issues/new) - the project is still shaping up, and nothing is written in stone (except, well, that it has to work for websockets)
