@@ -62,9 +62,15 @@ func editor(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
 		if strings.TrimSpace(buf) == "" {
 			return
 		}
-		state.PushAction(buf[:len(buf)-2])
+
+		buf = buf[:len(buf)-2]
+		state.PushAction(buf)
 		state.ActionIndex = -1
-		state.User(buf[:len(buf)-2])
+		if state.Conn != nil {
+			state.User(buf)
+			state.Conn.Write(buf)
+		}
+
 	}
 }
 

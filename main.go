@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"os"
 
 	"github.com/jroimartin/gocui"
 )
@@ -12,6 +13,8 @@ func main() {
 		log.Panicln(err)
 	}
 	defer g.Close()
+
+	state.ExecuteFunc = g.Execute
 
 	g.SetManagerFunc(layout)
 	g.Cursor = true
@@ -48,9 +51,25 @@ func layout(g *gocui.Gui) error {
 		state.Writer = v
 	}
 	modeBox(g)
+
+	if !state.FirstDrawDone {
+		go initialise()
+		state.FirstDrawDone = true
+	}
+
 	return nil
 }
 
 func quit(g *gocui.Gui, v *gocui.View) error {
 	return gocui.ErrQuit
+}
+
+func initialise() {
+	if len(os.Args) > 1 {
+		wsURL := os.Args[1]
+		err := state.StartConnection(wsURL)
+		if err != nil {
+			state.Error(err.Error())
+		}
+	}
 }
