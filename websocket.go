@@ -10,6 +10,7 @@ import (
 type WebSocket struct {
 	conn      *websocket.Conn
 	writeChan chan string
+	closed    bool
 }
 
 // ReadChannel retrieves a channel from which to read messages out of.
@@ -28,8 +29,10 @@ func (w *WebSocket) readChannel(c chan<- string) {
 	for {
 		_type, msg, err := w.conn.ReadMessage()
 		if err != nil {
-			state.Error(err.Error())
-			w.close(c)
+			if !w.closed {
+				state.Error(err.Error())
+				w.close(c)
+			}
 			return
 		}
 
@@ -65,6 +68,13 @@ func (w *WebSocket) writePump() {
 
 // Close closes the WebSocket connection.
 func (w *WebSocket) Close() error {
+	if w == nil {
+		return nil
+	}
+	if w.closed {
+		return nil
+	}
+	w.closed = true
 	if state.Conn == w {
 		state.Conn = nil
 	}

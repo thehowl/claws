@@ -145,6 +145,10 @@ func escEditor(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
 
 	switch ch {
 	case 'c':
+		if state.Conn != nil {
+			state.Error("You need to close the connection before starting a new one: <ESC>q")
+			return
+		}
 		state.Mode = modeConnect
 		return
 	case 'q':
@@ -152,6 +156,7 @@ func escEditor(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
 		if err != nil {
 			state.Error(err.Error())
 		}
+		state.Debug("WebSocket closed")
 		return
 	case 'i':
 		// goes into insert mode
