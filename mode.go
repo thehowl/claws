@@ -8,7 +8,13 @@ import (
 const (
 	modeInsert = iota
 	modeOverwrite
+	modeEscape
+	modeConnect
 )
+
+var notInsert = map[int]bool{
+	modeEscape: true,
+}
 
 var modeChars = []struct {
 	c  rune
@@ -17,6 +23,8 @@ var modeChars = []struct {
 }{
 	{' ', 0, gocui.ColorGreen},
 	{'R', gocui.ColorWhite | gocui.AttrBold, gocui.ColorGreen},
+	{' ', 0, gocui.ColorRed},
+	{'c', gocui.ColorWhite | gocui.AttrBold, gocui.ColorRed},
 }
 
 func modeBox(g *gocui.Gui) {

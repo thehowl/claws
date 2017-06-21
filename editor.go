@@ -7,11 +7,19 @@ import (
 )
 
 func editor(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
+	if state.Mode == modeEscape {
+		escEditor(v, key, ch, mod)
+		return
+	}
+
 	if ch != 0 && mod == 0 {
 		v.EditWrite(ch)
 	}
 
 	switch key {
+	case gocui.KeyEsc:
+		state.Mode = modeEscape
+
 	// Space, backspace, Del
 	case gocui.KeySpace:
 		v.EditWrite(' ')
@@ -59,18 +67,16 @@ func editor(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
 		buf := v.Buffer()
 		v.Clear()
 		v.SetCursor(0, 0)
-		if strings.TrimSpace(buf) == "" {
-			return
+
+		if buf != "" {
+			buf = buf[:len(buf)-2]
+		}
+		if strings.TrimSpace(buf) != "" {
+			state.PushAction(buf)
+			state.ActionIndex = -1
 		}
 
-		buf = buf[:len(buf)-2]
-		state.PushAction(buf)
-		state.ActionIndex = -1
-		if state.Conn != nil {
-			state.User(buf)
-			state.Conn.Write(buf)
-		}
-
+		enterActions[state.Mode](buf)
 	}
 }
 
@@ -98,4 +104,91 @@ func moveAhead(v *gocui.View) {
 		v.SetOrigin(newOX, 0)
 		v.MoveCursor(forward, 0, false)
 	}
+}
+
+// enterActions is the actions that can be done when KeyEnter is pressed
+// (outside of modeEscape), based on the mode.
+var enterActions = map[int]func(buf string){
+	modeInsert:    enterActionSendMessage,
+	modeOverwrite: enterActionSendMessage,
+	modeConnect:   enterActionConnect,
+}
+
+func enterActionSendMessage(buf string) {
+	if state.Conn != nil && strings.TrimSpace(buf) != "" {
+		state.User(buf)
+		state.Conn.Write(buf)
+	}
+}
+
+func enterActionConnect(buf string) {
+	if buf != "" {
+		state.Settings.LastWebsocketURL = buf
+		state.Settings.Save()
+	}
+	state.Mode = modeInsert
+	go connect()
+}
+
+// escEditor handles keys when esc has been pressed.
+func escEditor(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
+	switch key {
+	case gocui.KeyEsc:
+		state.ShouldQuit = true
+		return
+	case gocui.KeyInsert:
+		state.Mode = modeInsert
+		return
+	}
+
+	switch ch {
+	case 'c':
+		state.Mode = modeConnect
+		return
+	case 'q':
+		err := state.Conn.Close()
+		if err != nil {
+			state.Error(err.Error())
+		}
+		return
+	case 'i':
+		// goes into insert mode
+	case 'j':
+		// toggle JSON formatting
+		state.Settings.JSONFormatting = !state.Settings.JSONFormatting
+		err := state.Settings.Save()
+		if err != nil {
+			state.Error(err.Error())
+		}
+		e := "disabled"
+		if state.Settings.JSONFormatting {
+			e = "enabled"
+		}
+		state.Debug("JSON formatting " + e)
+	case 't':
+		// toggle timestamps
+		if state.Settings.Timestamp == "" {
+			state.Settings.Timestamp = "2006-01-02 15:04:05 "
+		} else {
+			state.Settings.Timestamp = ""
+		}
+		err := state.Settings.Save()
+		if err != nil {
+			state.Error(err.Error())
+		}
+		e := "disabled"
+		if state.Settings.Timestamp != "" {
+			e = "enabled"
+		}
+		state.Debug("Timestamps " + e)
+	case 'R':
+		// overwrite mode
+		state.Mode = modeOverwrite
+		return
+	default:
+		state.Debug("No action for key '" + string(ch) + "'")
+		return
+	}
+
+	state.Mode = modeInsert
 }

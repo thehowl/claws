@@ -65,6 +65,9 @@ func (w *WebSocket) writePump() {
 
 // Close closes the WebSocket connection.
 func (w *WebSocket) Close() error {
+	if state.Conn == w {
+		state.Conn = nil
+	}
 	close(w.writeChan)
 	return w.conn.Close()
 }
