@@ -7,6 +7,8 @@ import (
 )
 
 func editor(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
+	state.HideHelp = true
+
 	if state.Mode == modeEscape {
 		escEditor(v, key, ch, mod)
 		return
@@ -153,6 +155,8 @@ func escEditor(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
 		return
 	case 'i':
 		// goes into insert mode
+	case 'h':
+		state.HideHelp = false
 	case 'j':
 		// toggle JSON formatting
 		state.Settings.JSONFormatting = !state.Settings.JSONFormatting

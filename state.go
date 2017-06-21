@@ -15,6 +15,7 @@ import (
 var state = &State{
 	ActionIndex: -1,
 	Settings:    &Settings{},
+	HideHelp:    len(os.Args) > 1,
 }
 
 // State is the central function managing the information of claws.
@@ -28,6 +29,7 @@ type State struct {
 	// important for drawing
 	FirstDrawDone bool
 	ShouldQuit    bool
+	HideHelp      bool
 
 	// functions
 	ExecuteFunc func(func(*gocui.Gui) error)

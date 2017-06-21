@@ -29,6 +29,19 @@ func main() {
 	}
 }
 
+const welcomeScreen = `
+                   claws
+          Awesome WebSocket CLient
+
+    <ESC><ESC>    to quit
+    <ESC>c        to write an URL of a
+                  websocket and connect
+    <ESC>q        to close the websocket
+    <UP>/<DOWN>   move through your history
+
+           https://howl.moe/claws
+`
+
 func layout(g *gocui.Gui) error {
 	// Set when doing a double-esc
 	if state.ShouldQuit {
@@ -52,6 +65,20 @@ func layout(g *gocui.Gui) error {
 		v.Autoscroll = true
 		v.Wrap = true
 		state.Writer = v
+	}
+	if v, err := g.SetView("help", maxX/2-23, maxY/2-6, maxX/2+23, maxY/2+6); err != nil {
+		if err != gocui.ErrUnknownView {
+			return err
+		}
+		v.Wrap = true
+		v.Title = "Welcome"
+		v.Write([]byte(welcomeScreen))
+	}
+
+	if state.HideHelp {
+		g.SetViewOnTop("out")
+	} else {
+		g.SetViewOnTop("help")
 	}
 
 	g.Cursor = !notInsert[state.Mode]
