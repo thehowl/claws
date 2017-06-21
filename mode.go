@@ -18,13 +18,12 @@ var notInsert = map[int]bool{
 
 var modeChars = []struct {
 	c  rune
-	fg gocui.Attribute
 	bg gocui.Attribute
 }{
-	{' ', 0, gocui.ColorGreen},
-	{'R', gocui.ColorWhite | gocui.AttrBold, gocui.ColorGreen},
-	{' ', 0, gocui.ColorRed},
-	{'c', gocui.ColorWhite | gocui.AttrBold, gocui.ColorRed},
+	{' ', gocui.ColorGreen},
+	{'R', gocui.ColorGreen},
+	{' ', gocui.ColorRed},
+	{'c', gocui.ColorRed},
 }
 
 func modeBox(g *gocui.Gui) {
@@ -35,6 +34,6 @@ func modeBox(g *gocui.Gui) {
 	}
 
 	ch := modeChars[state.Mode]
-	g.SetRune(0, maxY-1, ch.c, ch.fg, ch.bg)
+	g.SetRune(0, maxY-1, ch.c, gocui.ColorWhite|gocui.AttrBold, ch.bg)
 	g.SetRune(1, maxY-1, ' ', gocui.ColorBlack, 0)
 }
