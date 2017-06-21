@@ -25,7 +25,7 @@ wsURL is an optional websocket URL to connect to once the UI has been initialise
 Once the UI has been initialised, you will be by default in "normal mode": green box with nothing in it. This means you are composing a message to send to the server through the websocket. By pressing `Esc`, followed by a letter, you can do a variety of actions explained in the following table.
 
 Letter   | Meaning
----------+----------------------------------------------------
+---------|----------------------------------------------------
 `Esc`    | Close the application. (Press Esc two times)
 `c`      | Create a new WebSocket connection. Will prompt for an URL. If nothing is passed, previous WebSocket URL will be used.
 `q`      | Close current WebSocket connection.
@@ -43,7 +43,7 @@ Claws stores its configuration file in `~/.config/claws.json`. You are welcome t
 There are also more actions you can activate using ESC + key, that are generally not used on a day-to-day basis.
 
 Letter   | Meaning
----------+----------------------------------------------------
+---------|----------------------------------------------------
 `t`      | Toggle timestamps before messages in console.
 `j`      | Toggle auto-detection of JSON in server messages and automatic tab indentation.
 `h`      | View help/welcome screen with quick commands.
