@@ -8,7 +8,9 @@ Websockets have been on the rise for a long time, but there is no good command l
 
 ## Getting started
 
-For the moment, this is in a very early stage, and as such it does not have binaries you can install directly. But if you have go, it is easy as running the following command and making sure that `$GOPATH/bin` (or `$GOBIN`) is in your PATH.
+You can grab the latest release binary from the [releases page](https://github.com/thehowl/claws/releases). Simply download it, extract it, and run it in a command line (or, well, double click it...).
+
+If you have Go set up, it is easy as running the following command and making sure that `$GOPATH/bin` (or `$GOBIN`) is in your PATH. Keep in mind that this way claws could be unstable.
 
 ```
 go get -v -u github.com/thehowl/claws
