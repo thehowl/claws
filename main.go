@@ -1,10 +1,16 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 
 	"github.com/jroimartin/gocui"
+)
+
+var (
+	version = "devel"
+	commit  = ""
 )
 
 func main() {
@@ -30,7 +36,7 @@ func main() {
 }
 
 const welcomeScreen = `
-                   claws
+                claws %s
           Awesome WebSocket CLient
 
     <ESC><ESC>    to quit
@@ -72,7 +78,10 @@ func layout(g *gocui.Gui) error {
 		}
 		v.Wrap = true
 		v.Title = "Welcome"
-		v.Write([]byte(welcomeScreen))
+		if version == "devel" && commit != "" {
+			version = commit
+		}
+		v.Write([]byte(fmt.Sprintf(welcomeScreen, version)))
 	}
 
 	if state.HideHelp {
