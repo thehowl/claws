@@ -12,3 +12,5 @@ archive:
       format: zip
 snapshot:
   name_template: devel
+release:
+  draft: true
