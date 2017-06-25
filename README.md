@@ -1,4 +1,4 @@
-# claws
+# claws [![Build Status](https://travis-ci.org/thehowl/claws.svg?branch=master)](https://travis-ci.org/thehowl/claws)
 
 an Awesome WebSocket CLient.
 
