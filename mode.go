@@ -12,10 +12,6 @@ const (
 	modeConnect
 )
 
-var notInsert = map[int]bool{
-	modeEscape: true,
-}
-
 var modeChars = []struct {
 	c  rune
 	bg gocui.Attribute

@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Added
+
+- Browse the log output by using your arrow keys, PgUp, PgDown, your mouse wheel and Home/End while in esc mode.
+  - If you press one of the keys mentioned above, while in ESC mode the log will not autoscroll. To enable autoscroll again, simply press Ins to go in normal mode.
+
+### Changed
+
+- While in ESC mode, a cursor will be shown to indicate what the current scrolling position is.
+
 ## 0.1.0 — 2017-06-25
 
 First official version of claws.

@@ -64,14 +64,19 @@ func layout(g *gocui.Gui) error {
 		v.Editor = gocui.EditorFunc(editor)
 		v.Clear()
 	}
-	if v, err := g.SetView("out", -1, -1, maxX, maxY-2); err != nil {
+	v, err := g.SetView("out", -1, -1, maxX, maxY-2)
+	if err != nil {
 		if err != gocui.ErrUnknownView {
 			return err
 		}
-		v.Autoscroll = true
 		v.Wrap = true
+		v.Editor = gocui.EditorFunc(editor)
+		v.Editable = true
 		state.Writer = v
 	}
+	// For more information about KeepAutoscrolling, see Scrolling in editor.go
+	v.Autoscroll = state.Mode != modeEscape || state.KeepAutoscrolling
+	g.Mouse = state.Mode == modeEscape
 	if v, err := g.SetView("help", maxX/2-23, maxY/2-6, maxX/2+23, maxY/2+6); err != nil {
 		if err != gocui.ErrUnknownView {
 			return err
@@ -93,9 +98,12 @@ func layout(g *gocui.Gui) error {
 		g.SetViewOnTop("help")
 	}
 
-	g.Cursor = !notInsert[state.Mode]
+	curView := "cmd"
+	if state.Mode == modeEscape {
+		curView = "out"
+	}
 
-	if _, err := g.SetCurrentView("cmd"); err != nil {
+	if _, err := g.SetCurrentView(curView); err != nil {
 		return err
 	}
 

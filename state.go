@@ -27,9 +27,10 @@ type State struct {
 	Conn        *WebSocket
 
 	// important for drawing
-	FirstDrawDone bool
-	ShouldQuit    bool
-	HideHelp      bool
+	FirstDrawDone     bool
+	ShouldQuit        bool
+	HideHelp          bool
+	KeepAutoscrolling bool
 
 	// functions
 	ExecuteFunc func(func(*gocui.Gui) error)

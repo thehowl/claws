@@ -21,6 +21,7 @@ func editor(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
 	switch key {
 	case gocui.KeyEsc:
 		state.Mode = modeEscape
+		state.KeepAutoscrolling = true
 
 	// Space, backspace, Del
 	case gocui.KeySpace:
@@ -132,14 +133,75 @@ func enterActionConnect(buf string) {
 	go connect()
 }
 
+func moveDown(v *gocui.View) {
+	_, yPos := v.Cursor()
+	if _, err := v.Line(yPos + 1); err == nil {
+		v.MoveCursor(0, 1, false)
+	}
+}
+
 // escEditor handles keys when esc has been pressed.
 func escEditor(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
 	switch key {
 	case gocui.KeyEsc:
 		state.ShouldQuit = true
-		return
 	case gocui.KeyInsert:
 		state.Mode = modeInsert
+
+	// Scrolling
+	//
+	// When one of the movements keys is pressed, autoscrolling is disabled so that
+	// the user can move through the output without having text moving underneath
+	// the cursor.
+	case gocui.KeyArrowUp, gocui.MouseWheelDown:
+		state.KeepAutoscrolling = false
+		v.MoveCursor(0, -1, false)
+	case gocui.KeyArrowDown, gocui.MouseWheelUp:
+		state.KeepAutoscrolling = false
+		moveDown(v)
+	case gocui.KeyArrowLeft:
+		state.KeepAutoscrolling = false
+		v.MoveCursor(-1, 0, false)
+	case gocui.KeyArrowRight:
+		state.KeepAutoscrolling = false
+		_, y := v.Cursor()
+		if _, err := v.Word(0, y); err == nil {
+			v.MoveCursor(1, 0, false)
+		}
+	case gocui.KeyPgup:
+		state.KeepAutoscrolling = false
+		_, ySize := v.Size()
+		for i := 0; i < ySize; i++ {
+			v.MoveCursor(0, -1, false)
+		}
+	case gocui.KeyPgdn:
+		state.KeepAutoscrolling = false
+		_, ySize := v.Size()
+		for i := 0; i < ySize; i++ {
+			moveDown(v)
+		}
+	case gocui.KeyHome:
+		state.KeepAutoscrolling = false
+		v.SetCursor(0, 0)
+		v.SetOrigin(0, 0)
+	case gocui.KeyEnd:
+		state.KeepAutoscrolling = false
+		lines := len(strings.Split(v.ViewBuffer(), "\n"))
+		_, y := v.Size()
+
+		origin := lines - y - 1
+		if origin < 0 {
+			origin = 0
+		}
+		v.SetOrigin(0, origin)
+
+		cursorY := y - 1
+		if lines <= y {
+			cursorY = lines - 2
+		}
+		v.SetCursor(0, cursorY)
+	}
+	if ch == 0 {
 		return
 	}
 

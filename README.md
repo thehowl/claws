@@ -34,6 +34,8 @@ Letter   | Meaning
 
 If you need to go back to normal mode while in Esc mode, simply press Insert or `i`.
 
+If you want to scroll through the logs, while in Esc mode press the arrow keys, PgUp/PgDown, Home/End. Keep in mind that pressing any of these will disable autoscroll, so new elements from the log won't be shown unless you scroll down.
+
 This is probably what you will need most of the time. If you're looking to have more things, [move on](#advanced-usage).
 
 When you're typing text into the field, you can browse through the history of previous text, even in previous sessions, in a bash-like fashion.
