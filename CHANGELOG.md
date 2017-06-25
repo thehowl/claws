@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-## 0.1.0 -- 2017-06-25
+## 0.1.0 — 2017-06-25
 
 First official version of claws.
 
