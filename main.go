@@ -80,6 +80,9 @@ func layout(g *gocui.Gui) error {
 		v.Title = "Welcome"
 		if version == "devel" && commit != "" {
 			version = commit
+			if len(version) > 5 {
+				version = version[:5]
+			}
 		}
 		v.Write([]byte(fmt.Sprintf(welcomeScreen, version)))
 	}
