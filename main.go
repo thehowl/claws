@@ -20,7 +20,7 @@ func main() {
 	}
 	defer g.Close()
 
-	state.ExecuteFunc = g.Execute
+	state.ExecuteFunc = g.Update
 
 	g.SetManagerFunc(layout)
 	g.Cursor = true
