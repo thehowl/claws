@@ -147,6 +147,10 @@ func (s *Settings) Load() error {
 
 	f, err := os.Open(folder + "claws.json")
 	if err != nil {
+		// silently ignore ErrNotExist
+		if os.IsNotExist(err) {
+			return nil
+		}
 		return err
 	}
 	defer f.Close()
