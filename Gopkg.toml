@@ -23,7 +23,7 @@
 
 [[constraint]]
   name = "github.com/fatih/color"
-  version = "1.5.0"
+  version = "1.6.0"
 
 [[constraint]]
   name = "github.com/gorilla/websocket"
@@ -31,4 +31,4 @@
 
 [[constraint]]
   name = "github.com/jroimartin/gocui"
-  revision = "eb73455bec6f3eff128481351bf476915bf95228"
+  revision = "master"
