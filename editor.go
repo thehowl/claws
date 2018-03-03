@@ -72,7 +72,7 @@ func editor(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
 		v.SetCursor(0, 0)
 
 		if buf != "" {
-			buf = buf[:len(buf)-2]
+			buf = buf[:len(buf)-1]
 		}
 		if strings.TrimSpace(buf) != "" {
 			state.PushAction(buf)
@@ -85,10 +85,7 @@ func editor(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
 
 func setText(v *gocui.View, text string) {
 	v.Clear()
-	// Why are we doing this? Because normally when you write a line
-	// gocui adds " \n" at the end of it. Whe clearing and adding, though,
-	// the space isn't added back.
-	v.Write([]byte(text + " "))
+	v.Write([]byte(text))
 	v.SetCursor(len(text), 0)
 }
 
