@@ -11,6 +11,12 @@ type WebSocket struct {
 	conn      *websocket.Conn
 	writeChan chan string
 	closed    bool
+	url       string
+}
+
+// URL returns the URL of the WebSocket.
+func (w *WebSocket) URL() string {
+	return w.url
 }
 
 // ReadChannel retrieves a channel from which to read messages out of.
@@ -114,6 +120,7 @@ func CreateWebSocket(url string) (*WebSocket, error) {
 	ws := &WebSocket{
 		conn:      conn,
 		writeChan: make(chan string, 128),
+		url:       url,
 	}
 
 	go ws.writePump()
