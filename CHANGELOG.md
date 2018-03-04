@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.3.0 — 2018-03-04
+
+### Added
+
+- Message piping allows you to log messages that you receive and you send, or do any kind of preprocessing before being sent or being shown to you. You can check the README for more information.
+
+### Changed
+
+- We changed the JSON parsing library, so now we have more control over JSON formatting and we can keep the order of keys without sorting them alphabetically as we did before. We also collapse single-key arrays and objects so that they are on one line.
+- Double-Esc does not work anymore to exit; it is encouraged to use Ctrl-C instead.
+
+### Fixed
+
+- Claws doesn't complain anymore when it can't find the config file. Mostly a quality-of-life change for new users.
+
 ## 0.2.0 — 2017-06-26
 
 ### Added
