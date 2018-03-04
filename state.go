@@ -131,7 +131,7 @@ func (s *State) Server(x string) {
 	if s.Settings.JSONFormatting {
 		res = attemptJSONFormatting(res)
 	}
-	s.printToOut(printServer, x)
+	s.printToOut(printServer, res)
 }
 
 var (
