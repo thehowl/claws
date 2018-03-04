@@ -86,9 +86,6 @@ func (s *State) StartConnection(url string) error {
 func (s *State) wsReader() {
 	ch := s.Conn.ReadChannel()
 	for msg := range ch {
-		if s.Settings.JSONFormatting {
-			msg = attemptJSONFormatting(msg)
-		}
 		s.Server(msg)
 	}
 }
@@ -130,6 +127,9 @@ func (s *State) Server(x string) {
 		if res == "" || res == "\n" {
 			return
 		}
+	}
+	if s.Settings.JSONFormatting {
+		res = attemptJSONFormatting(res)
 	}
 	s.printToOut(printServer, x)
 }
