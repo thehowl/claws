@@ -148,8 +148,8 @@ func (s *State) pipe(data, t string, command []string) (string, error) {
 	c.Env = append(
 		os.Environ(),
 		"CLAWS_PIPE_TYPE="+t,
-		"CLAWS_SESSION="+strconv.FormatInt(sessionStarted.UnixNano(), 10),
-		"CLAWS_CONNECTION="+strconv.FormatInt(sessionStarted.UnixNano(), 10),
+		"CLAWS_SESSION="+strconv.FormatInt(sessionStarted.UnixNano()/1000, 10),
+		"CLAWS_CONNECTION="+strconv.FormatInt(sessionStarted.UnixNano()/1000, 10),
 		"CLAWS_WS_URL="+s.Conn.URL(),
 	)
 	// set up stdin
