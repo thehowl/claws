@@ -1,0 +1,39 @@
+image: golang:latest
+
+variables:
+  REPO_NAME: howl.moe/nanojson
+
+before_script:
+  - mkdir -p "$GOPATH/src/$REPO_NAME"
+  - cp -r "$CI_PROJECT_DIR/." "$GOPATH/src/$REPO_NAME"
+  - cd "$GOPATH/src/$REPO_NAME"
+  - go version
+  - go env
+  - go get -t -v -d
+
+stages:
+  - test
+  - deploy
+
+test:
+  stage: test
+  script:
+    - go vet ./...
+    - go test -v -race ./...
+
+benchmark:
+  stage: test
+  script:
+    - go test -run='^$' -bench=. -benchmem ./...
+
+pages:
+  stage: deploy
+  script:
+    - go test -v -cover -covermode=count -coverprofile=cover.out ./...
+    - mkdir -p "$CI_PROJECT_DIR/public"
+    - go tool cover -html cover.out -o "$CI_PROJECT_DIR/public/index.html"
+  artifacts:
+    paths:
+      - public
+  only:
+    - master
