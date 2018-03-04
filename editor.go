@@ -141,7 +141,7 @@ func moveDown(v *gocui.View) {
 func escEditor(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
 	switch key {
 	case gocui.KeyEsc:
-		state.ShouldQuit = true
+		// silently ignore - we're already in esc mode!
 	case gocui.KeyInsert:
 		state.Mode = modeInsert
 

@@ -39,7 +39,7 @@ const welcomeScreen = `
                 claws %s
           Awesome WebSocket CLient
 
-    <ESC><ESC>    to quit
+    C-c           to quit
     <ESC>c        to write an URL of a
                   websocket and connect
     <ESC>q        to close the websocket
