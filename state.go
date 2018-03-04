@@ -150,6 +150,7 @@ func (s *State) pipe(data, t string, command []string) (string, error) {
 		"CLAWS_PIPE_TYPE="+t,
 		"CLAWS_SESSION="+strconv.FormatInt(sessionStarted.UnixNano(), 10),
 		"CLAWS_CONNECTION="+strconv.FormatInt(sessionStarted.UnixNano(), 10),
+		"CLAWS_WS_URL="+s.Conn.URL(),
 	)
 	// set up stdin
 	stdin := strings.NewReader(data)
