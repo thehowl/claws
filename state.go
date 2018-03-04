@@ -5,7 +5,10 @@ import (
 	"errors"
 	"io"
 	"os"
+	"os/exec"
 	"os/user"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/fatih/color"
@@ -75,6 +78,7 @@ func (s *State) StartConnection(url string) error {
 		return err
 	}
 	s.Conn = ws
+	connectionStarted = time.Now()
 	go s.wsReader()
 	return nil
 }
@@ -108,12 +112,52 @@ func (s *State) Error(x string) {
 
 // User prints user-provided messages to the Writer, using green.
 func (s *State) User(x string) {
-	s.printToOut(printUser, x)
+	res, err := s.pipe(x, "out", s.Settings.Pipe.Out)
+	if err != nil {
+		s.Error(err.Error())
+		if res == "" || res == "\n" {
+			return
+		}
+	}
+	s.printToOut(printUser, res)
 }
 
 // Server prints server-returned messages to the Writer, using white.
 func (s *State) Server(x string) {
+	res, err := s.pipe(x, "in", s.Settings.Pipe.In)
+	if err != nil {
+		s.Error(err.Error())
+		if res == "" || res == "\n" {
+			return
+		}
+	}
 	s.printToOut(printServer, x)
+}
+
+var (
+	sessionStarted    = time.Now()
+	connectionStarted time.Time
+)
+
+func (s *State) pipe(data, t string, command []string) (string, error) {
+	if len(command) < 1 {
+		return data, nil
+	}
+	// prepare the command: create it, set up env variables
+	c := exec.Command(command[0], command[1:]...)
+	c.Env = append(
+		os.Environ(),
+		"CLAWS_PIPE_TYPE="+t,
+		"CLAWS_SESSION="+strconv.FormatInt(sessionStarted.UnixNano(), 10),
+		"CLAWS_CONNECTION="+strconv.FormatInt(sessionStarted.UnixNano(), 10),
+	)
+	// set up stdin
+	stdin := strings.NewReader(data)
+	c.Stdin = stdin
+
+	// run the command
+	res, err := c.Output()
+	return string(res), err
 }
 
 func (s *State) printToOut(f func(io.Writer, ...interface{}) (int, error), str string) {
@@ -136,6 +180,10 @@ type Settings struct {
 	Timestamp        string
 	LastWebsocketURL string
 	LastActions      []string
+	Pipe             struct {
+		In  []string
+		Out []string
+	}
 }
 
 // Load loads settings from ~/.config/claws.json
