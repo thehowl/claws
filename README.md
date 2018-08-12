@@ -14,7 +14,7 @@ If you have Go set up, it is easy as running the following command and making su
 Generally, this should be pretty stable, but keep in mind that it builds on master, so it may break at any point.
 
 ```
-go get -v -u github.com/thehowl/claws
+go get -v -u howl.moe/claws
 ```
 
 ## Usage
@@ -89,4 +89,4 @@ The sky is the limit here, so you can really do anything you can think of. Here 
 
 ## Contributing
 
-Claws is mostly feature-complete, though we have something that might interest you on our [issue list](https://github.com/thehowl/claws/issues). If, instead, you're interested in reporting a bug or asking for a new feature, you can create a new [issue](https://github.com/claws/issues/new). There are no real contribution guidelines, but try to write some good Go code and use `go fmt` :).
+Claws is mostly feature-complete, though we have something that might interest you on our [issue list](https://github.com/thehowl/claws/issues). If, instead, you're interested in reporting a bug or asking for a new feature, you can create a new [issue](https://github.com/thehowl/claws/issues/new). There are no real contribution guidelines, but try to write some good Go code and use `go fmt` :).
