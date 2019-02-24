@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.2 — 2019-02-24
+
+- Fix claws crashing on cmder
+
 ## 0.3.1 — 2018-08-12
 
 ### Fixed
