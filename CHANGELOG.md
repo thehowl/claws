@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.1 — 2018-08-12
+
+### Fixed
+
+- Fix `CLAWS_CONNECTION` always having the same value as `CLAWS_SESSION`
+
 ## 0.3.0 — 2018-03-04
 
 ### Added
