@@ -1,4 +1,4 @@
-module github.com/thehowl/claws
+module howl.moe/claws
 
 go 1.14
 
