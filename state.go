@@ -41,6 +41,14 @@ type State struct {
 	Settings *Settings
 }
 
+func clearBuffer(*gocui.Gui, *gocui.View) error {
+	v := state.Writer.(*gocui.View)
+	v.Clear()
+	v.SetCursor(0, 0)
+	v.SetOrigin(0, 0)
+	return nil
+}
+
 // PushAction adds an action to LastActions
 func (s *State) PushAction(act string) {
 	s.Settings.LastActions = append([]string{act}, s.Settings.LastActions...)
@@ -177,6 +185,7 @@ func (s *State) printToOut(f func(io.Writer, ...interface{}) (int, error), str s
 
 // Settings contains persistent information about the usage of claws.
 type Settings struct {
+	Info             string
 	JSONFormatting   bool
 	Timestamp        string
 	LastWebsocketURL string
@@ -220,6 +229,7 @@ func (s Settings) Save() error {
 	}
 	defer f.Close()
 
+	s.Info = "Claws configuration file; more information can be found at https://howl.moe/claws"
 	e := json.NewEncoder(f)
 	e.SetIndent("", "\t")
 	return e.Encode(s)
