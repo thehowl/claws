@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.4.0 - 2022-07-07
+
+## Added
+
+- The `Ctrl-L` keybinding has been added, which allows you to clear the buffer
+  (like the clear command and the same keybinding on UNIX shells)
+
+## Changed
+
+- We are now using go modules internally instead of dep files. This means that
+  the install method using `go get` has changed, and the `go install` command
+  should be used instead.
+- The Go module path has also been set to howl.moe/claws, providing a
+  hosting-independent install path for the project.
+
+### Fixed
+
+- There were issues moving the arrow key at the end of the line in the command
+  buffer (#18). This has been fixed.
+
 ## 0.3.2 — 2019-02-24
 
 - Fix claws crashing on cmder
