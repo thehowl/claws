@@ -6,12 +6,12 @@ Hotfix to change some release configurations.
 
 ## 0.4.0 - 2022-07-07
 
-## Added
+### Added
 
 - The `Ctrl-L` keybinding has been added, which allows you to clear the buffer
   (like the clear command and the same keybinding on UNIX shells)
 
-## Changed
+### Changed
 
 - We are now using go modules internally instead of dep files. This means that
   the install method using `go get` has changed, and the `go install` command
