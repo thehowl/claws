@@ -41,11 +41,8 @@ func editor(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
 		x2, _ := v.Origin()
 		x += x2
 		buf := v.Buffer()
-		// I don't know really how this works, this was mostly obtained through trial
-		// and error. Anyway, this system impedes going on a newline by moving right.
-		// This is usually possible because once you write something to the buffer
-		// it automatically adds " \n", which is two characters. Sooo yeah.
-		if buf != "" && len(buf) > (x+2) {
+		// Position of cursor should be on space that gocui adds at the end if at end
+		if buf != "" && len(strings.TrimRight(buf, "\r\n")) > x {
 			v.MoveCursor(1, 0, false)
 		}
 
