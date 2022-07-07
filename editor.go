@@ -212,7 +212,7 @@ func escEditor(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
 		if err != nil {
 			state.Error(err.Error())
 		}
-		state.Debug("WebSocket closed")
+		state.Debug("WebSocket closed (use C-c to quit)")
 		return
 	case 'i':
 		// goes into insert mode

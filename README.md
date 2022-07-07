@@ -4,7 +4,11 @@
 <h5 align="center">an Awesome WebSocket CLient</h5>
 <h1 align="center">Claws <a href="https://travis-ci.org/thehowl/claws"><img src="https://travis-ci.org/thehowl/claws.svg?branch=master"></a></h1>
 
-WebSockets have been on the rise for a long time, but there is no good command line client that allows to interface with websockets without having to deal with barebones interfaces. Claws aims to make testing websockets and interfacing with them easier and more pleasant.
+Claws is an interactive command line client to interface with WebSockets. It
+allows you to clearly identify the messages you send and those you receive,
+scroll through your history and send commands in a shell-like fashion,
+format JSON messages, add timestamps and perform pre-formatting on messages
+you send and receive.
 
 ## Getting started
 
@@ -14,10 +18,13 @@ If you have Go set up, it is easy as running the following command and making su
 Generally, this should be pretty stable, but keep in mind that it builds on master, so it may break at any point.
 
 ```
-go get -v -u howl.moe/claws
+go install -v howl.moe/claws@latest
 ```
 
 ## Usage
+
+[A 4-minute video tutorial is available to explain the basics of the
+interface](https://youtu.be/yIhEcA0Z794)
 
 ```
 claws [wsURL]
@@ -25,7 +32,14 @@ claws [wsURL]
 
 wsURL is an optional websocket URL to connect to once the UI has been initialised.
 
-Once the UI has been initialised, you will be by default in "normal mode": green box with nothing in it. This means you are composing a message to send to the server through the websocket. By pressing `Esc`, followed by a letter, you can do a variety of actions explained in the following table.
+The interface has some similar concepts to vim, but it should come off as more
+intuitive (and it's also easier to quit - as Ctrl-c quits the program as you
+would expect!).
+
+Once the UI has been initialised, you will be by default in "insert mode":
+green box with nothing in it. This means you are composing a message to send
+to the server through the websocket. By pressing `Esc`, followed by a letter,
+you can do a variety of actions explained in the following table.
 
 Letter   | Meaning
 ---------|----------------------------------------------------
@@ -33,11 +47,13 @@ Letter   | Meaning
 `c`      | Create a new WebSocket connection. Will prompt for an URL. If nothing is passed, previous WebSocket URL will be used.
 `q`      | Close current WebSocket connection.
 
-Quitting is done by pressing Ctrl-C. In previous version, you could press Esc twice to exit, but we decided to remove that because some vim aficionados (myself included) may find themselves panickingly pressing esc and accidentally quitting Claws.
+Extra keybindings using Ctrl are Ctrl-C, which quits the program, and Ctrl-L,
+which clears the buffer (like the `clear` command in your command line)
 
-If you want to scroll through the logs, while in Esc mode press the arrow keys, PgUp/PgDown, Home/End. Keep in mind that pressing any of these will disable autoscroll, so new elements from the log won't be shown unless you scroll down.
+If you want to scroll through the logs, while in Esc mode press the arrow keys,
+PgUp/PgDown, Home/End. Keep in mind that pressing any of these will disable autoscroll, so new elements from the log won't be shown unless you scroll down.
 
-When you're typing text into the field, you can browse through the history of previous text, even in previous sessions, in a bash-like fashion.
+When you're typing text into the field, you can browse through the history of previous text, even in previous sessions, in a bash-like fashion using the up and down keys.
 
 ### Advanced usage
 
@@ -52,8 +68,13 @@ Letter   | Meaning
 
 ## Configuration
 
-Claws stores its configuration file in `~/.config/claws.json`. You are welcome to hack it and change values to how you see fit. Here's a list of the values: obvious settings are ignored.
+Claws stores its configuration file in `~/.config/claws.json`. You are welcome
+to hack it and change values to how you see fit. Here's a list of the values.
+Note that the path to the file is the same also on Windows.
 
+* **Info:** this field is used to redirect readers to this documentation file.
+* **JSONFormatting:** either true or false, depending on whether JSON formatting
+  is enabled.
 * **Timestamp:** a timestamp with which all messages to the console should be prefixed. The defaults can be toggled using the `t` key in esc mode, although you can also use your own prefix, following [Go's system of formatting dates](https://golang.org/pkg/time/#Time.Format). The default values are an empty string `""` or `"2006-01-02 15:04:05 "`.
 * **LastWebsocketURL:** URL of the last websocket you connected to. Used when connecting using the `c` key without specifying an URL.
 * **LastActions:** 50 most recent messages you sent to the console, used for seeking through history using up and down.
