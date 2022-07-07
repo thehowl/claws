@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.1 - 2022-07-07
+
+Hotfix to change some release configurations.
+
 ## 0.4.0 - 2022-07-07
 
 ## Added
