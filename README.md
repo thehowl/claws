@@ -65,6 +65,7 @@ Letter   | Meaning
 `j`      | Toggle auto-detection of JSON in server messages and automatic tab indentation.
 `h`      | View help/welcome screen with quick commands.
 `R`      | Go into replace/overtype mode (can also be done by pressing Insert a couple of times).
+`p`      | Set ping interval in seconds.  Will prompt for an interval. If nothing is passed, pings will be disabled.
 
 ## Configuration
 

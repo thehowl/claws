@@ -22,7 +22,7 @@ var state = &State{
 type State struct {
 	// important to running the application as a whole
 	ActionIndex int
-	Mode        int
+	Mode        UIMode
 	Writer      io.Writer
 	Conn        *WebSocket
 

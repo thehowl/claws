@@ -12,6 +12,15 @@ import (
 	"github.com/fatih/structs"
 )
 
+/*
+	TODO: issues
+
+		! goroutine safety (esp global Conn pointer)
+		- done/wait channels for read/write pumps
+		- binary messages
+		- pipe persistence
+*/
+
 func getConfigFolder() (string, error) {
 
 	u, err := user.Current()
@@ -206,14 +215,17 @@ USAGE
 
   Key Action
   --- ---------------------------------------------------------------
-  i   Go to insert mode (also works by pressing the Ins key).
-  c   Create a new WebSocket connection. Will prompt for an URL.
-      If nothing is passed, previous WebSocket URL will be used.
-  q   Close current WebSocket connection.
-  t   Toggle timestamps before messages in console.
-  j   Toggle auto-detection of JSON in server messages and automatic
-      tab indentation.
+  Esc Enter command mode. (<Ctrl-[> also works)
+  c   Create a new connection. Prompts for WebSocket URL.
+      If nothing is passed, previous URL will be used.
   h   View help/welcome screen with quick commands.
-  R   Go into replace/overtype mode
-      (can also be done by pressing Insert a couple of times).
+  i   Go to insert mode. (<Ins> key also works)
+  j   Toggle auto-detection of JSON in server messages and
+      automatic tab indentation.
+  p   Set ping interval in seconds.  Will prompt for an interval.
+      If nothing is passed, pings will be disabled.
+  q   Close current connection.
+  R   Go into replace/overtype mode.
+      (can also be done by pressing <Ins> a couple of times)
+  t   Toggle timestamps before messages in console.
 `

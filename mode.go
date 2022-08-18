@@ -4,22 +4,28 @@ import (
 	"github.com/jroimartin/gocui"
 )
 
+type UIMode int
+
 // List of all modes
 const (
-	modeInsert = iota
-	modeOverwrite
-	modeEscape
-	modeConnect
+	modeInsert    UIMode = iota
+	modeOverwrite UIMode = iota
+	modeEscape    UIMode = iota
+	modeConnect   UIMode = iota
+	modeSetPing   UIMode = iota
 )
 
-var modeChars = []struct {
-	c  rune
-	bg gocui.Attribute
-}{
-	{' ', gocui.ColorGreen},
-	{'R', gocui.ColorGreen},
-	{' ', gocui.ColorRed},
-	{'c', gocui.ColorRed},
+type ModeStyle struct {
+	Char    rune
+	BgColor gocui.Attribute
+}
+
+var modeChars = map[UIMode]ModeStyle{
+	modeInsert:    ModeStyle{' ', gocui.ColorGreen},
+	modeOverwrite: ModeStyle{'R', gocui.ColorGreen},
+	modeEscape:    ModeStyle{' ', gocui.ColorRed},
+	modeConnect:   ModeStyle{'c', gocui.ColorRed},
+	modeSetPing:   ModeStyle{'p', gocui.ColorRed},
 }
 
 func modeBox(g *gocui.Gui) {
@@ -30,6 +36,6 @@ func modeBox(g *gocui.Gui) {
 	}
 
 	ch := modeChars[state.Mode]
-	g.SetRune(0, maxY-1, ch.c, gocui.ColorWhite|gocui.AttrBold, ch.bg)
+	g.SetRune(0, maxY-1, ch.Char, gocui.ColorWhite|gocui.AttrBold, ch.BgColor)
 	g.SetRune(1, maxY-1, ' ', gocui.ColorBlack, 0)
 }

@@ -9,10 +9,11 @@ import (
 
 // WebSocket is a wrapper around a gorilla.WebSocket for claws.
 type WebSocket struct {
-	conn       *websocket.Conn
-	writeChan  chan string
-	pingTicker *time.Ticker
-	url        string
+	conn         *websocket.Conn
+	writeChan    chan string
+	pingTicker   *time.Ticker
+	pingInterval time.Duration
+	url          string
 }
 
 // URL returns the URL of the WebSocket.
@@ -65,11 +66,6 @@ func (w *WebSocket) readPump(ch chan<- string) {
 
 func (w *WebSocket) writePump() {
 
-	var pingChan <-chan time.Time
-	if w.pingTicker != nil {
-		pingChan = w.pingTicker.C
-	}
-
 	for {
 
 		select {
@@ -85,11 +81,13 @@ func (w *WebSocket) writePump() {
 				return
 			}
 
-		case <-pingChan:
+		case <-w.pingTicker.C:
 
-			if E := w.conn.WriteMessage(websocket.PingMessage, []byte{}); E != nil {
-				state.Error(E.Error())
-				return
+			if w.pingInterval > 0 {
+				if E := w.conn.WriteMessage(websocket.PingMessage, []byte{}); E != nil {
+					state.Error(E.Error())
+					return
+				}
 			}
 		}
 	}
@@ -109,7 +107,7 @@ func (w *WebSocket) CloseWs() error {
 
 	if w.pingTicker != nil {
 		w.pingTicker.Stop()
-		w.pingTicker = nil
+		w.pingInterval = 0
 	}
 
 	if w.writeChan != nil {
@@ -158,11 +156,22 @@ func CreateWebSocket(url string) (*WebSocket, error) {
 
 	// START PING TICKER IF ENABLED
 	oSet := state.Settings.Clone()
-	if oSet.PingSeconds > 0 {
-		ws.pingTicker = time.NewTicker(time.Duration(oSet.PingSeconds) * time.Second)
-	}
+	ws.pingTicker = time.NewTicker(time.Hour)
+	ws.SetPingInterval(oSet.PingSeconds)
 
 	go ws.writePump()
 
 	return ws, nil
+}
+
+func (pWs *WebSocket) SetPingInterval(secs int) {
+
+	dur := time.Duration(secs) * time.Second
+	pWs.pingInterval = dur
+
+	if dur > 0 {
+		pWs.pingTicker.Reset(dur)
+	} else {
+		pWs.pingTicker.Stop()
+	}
 }

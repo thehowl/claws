@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/jroimartin/gocui"
@@ -103,12 +104,31 @@ func moveAhead(v *gocui.View) {
 	}
 }
 
+type ActionFunc func(string)
+
 // enterActions is the actions that can be done when KeyEnter is pressed
 // (outside of modeEscape), based on the mode.
-var enterActions = map[int]func(buf string){
+var enterActions = map[UIMode]ActionFunc{
 	modeInsert:    enterActionSendMessage,
 	modeOverwrite: enterActionSendMessage,
 	modeConnect:   enterActionConnect,
+	modeSetPing:   enterActionSetPing,
+}
+
+func enterActionSetPing(buf string) {
+
+	secs, E := strconv.Atoi(strings.TrimSpace(buf))
+
+	if state.Conn != nil {
+
+		if E != nil {
+			secs = 0
+		}
+
+		state.Conn.SetPingInterval(secs)
+	}
+
+	state.Mode = modeInsert
 }
 
 func enterActionSendMessage(buf string) {
@@ -206,6 +226,9 @@ func escEditor(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
 			return
 		}
 		state.Mode = modeConnect
+		return
+	case 'p':
+		state.Mode = modeSetPing
 		return
 	case 'q':
 		err := state.Conn.CloseWs()
