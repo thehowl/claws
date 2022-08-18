@@ -65,13 +65,12 @@ func (w *WebSocket) readPump(ch chan<- string) {
 
 func (w *WebSocket) writePump() {
 
+	var pingChan <-chan time.Time
+	if w.pingTicker != nil {
+		pingChan = w.pingTicker.C
+	}
+
 	for {
-
-		var pingChan <-chan time.Time
-
-		if w.pingTicker != nil {
-			pingChan = w.pingTicker.C
-		}
 
 		select {
 
