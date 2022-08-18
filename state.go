@@ -1,12 +1,10 @@
 package main
 
 import (
-	"encoding/json"
 	"errors"
 	"io"
 	"os"
 	"os/exec"
-	"os/user"
 	"strconv"
 	"strings"
 	"time"
@@ -17,7 +15,6 @@ import (
 
 var state = &State{
 	ActionIndex: -1,
-	Settings:    &Settings{},
 	HideHelp:    len(os.Args) > 1,
 }
 
@@ -38,7 +35,7 @@ type State struct {
 	// functions
 	ExecuteFunc func(func(*gocui.Gui) error)
 
-	Settings *Settings
+	Settings Settings
 }
 
 func clearBuffer(*gocui.Gui, *gocui.View) error {
@@ -49,22 +46,22 @@ func clearBuffer(*gocui.Gui, *gocui.View) error {
 	return nil
 }
 
-// PushAction adds an action to LastActions
-func (s *State) PushAction(act string) {
-	s.Settings.LastActions = append([]string{act}, s.Settings.LastActions...)
-	if len(s.Settings.LastActions) > 100 {
-		s.Settings.LastActions = s.Settings.LastActions[:100]
-	}
-	s.Settings.Save()
+// adds an action to LastActions
+func (s *State) PushAction(act string) error {
+	return s.Settings.PushAction(act)
 }
 
-// BrowseActions changes the ActionIndex and returns the value at the specified index.
+// changes the ActionIndex and returns the value at the specified index.
 // move is the number of elements to move (negatives go into more recent history,
 // 0 returns the current element, positives go into older history)
 func (s *State) BrowseActions(move int) string {
+
+	oSet := s.Settings.Clone()
+
+	nActions := len(oSet.LastActions)
 	s.ActionIndex += move
-	if s.ActionIndex >= len(s.Settings.LastActions) {
-		s.ActionIndex = len(s.Settings.LastActions) - 1
+	if s.ActionIndex >= nActions {
+		s.ActionIndex = nActions - 1
 	} else if s.ActionIndex < -1 {
 		s.ActionIndex = -1
 	}
@@ -73,7 +70,8 @@ func (s *State) BrowseActions(move int) string {
 	if s.ActionIndex == -1 {
 		return ""
 	}
-	return s.Settings.LastActions[s.ActionIndex]
+
+	return oSet.LastActions[s.ActionIndex]
 }
 
 // StartConnection begins a WebSocket connection to url.
@@ -117,28 +115,37 @@ func (s *State) Error(x string) {
 
 // User prints user-provided messages to the Writer, using green.
 func (s *State) User(x string) {
-	res, err := s.pipe(x, "out", s.Settings.Pipe.Out)
+
+	oSet := s.Settings.Clone()
+
+	res, err := s.pipe(x, "out", oSet.Pipe.Out)
 	if err != nil {
 		s.Error(err.Error())
 		if res == "" || res == "\n" {
 			return
 		}
 	}
+
 	s.printToOut(printUser, res)
 }
 
 // Server prints server-returned messages to the Writer, using white.
 func (s *State) Server(x string) {
-	res, err := s.pipe(x, "in", s.Settings.Pipe.In)
+
+	oSet := s.Settings.Clone()
+
+	res, err := s.pipe(x, "in", oSet.Pipe.In)
 	if err != nil {
 		s.Error(err.Error())
 		if res == "" || res == "\n" {
 			return
 		}
 	}
-	if s.Settings.JSONFormatting {
+
+	if oSet.JSONFormatting {
 		res = attemptJSONFormatting(res)
 	}
+
 	s.printToOut(printServer, res)
 }
 
@@ -170,8 +177,11 @@ func (s *State) pipe(data, t string, command []string) (string, error) {
 }
 
 func (s *State) printToOut(f func(io.Writer, ...interface{}) (int, error), str string) {
-	if s.Settings.Timestamp != "" {
-		str = time.Now().Format(s.Settings.Timestamp) + str
+
+	oSet := s.Settings.Clone()
+
+	if oSet.Timestamp != "" {
+		str = time.Now().Format(oSet.Timestamp) + str
 	}
 
 	if str != "" && str[len(str)-1] != '\n' {
@@ -181,68 +191,4 @@ func (s *State) printToOut(f func(io.Writer, ...interface{}) (int, error), str s
 		_, err := f(s.Writer, str)
 		return err
 	})
-}
-
-// Settings contains persistent information about the usage of claws.
-type Settings struct {
-	Info             string
-	JSONFormatting   bool
-	Timestamp        string
-	LastWebsocketURL string
-	LastActions      []string
-	Pipe             struct {
-		In  []string
-		Out []string
-	}
-}
-
-// Load loads settings from ~/.config/claws.json
-func (s *Settings) Load() error {
-	folder, err := getConfigFolder()
-	if err != nil {
-		return err
-	}
-
-	f, err := os.Open(folder + "claws.json")
-	if err != nil {
-		// silently ignore ErrNotExist
-		if os.IsNotExist(err) {
-			return nil
-		}
-		return err
-	}
-	defer f.Close()
-
-	return json.NewDecoder(f).Decode(s)
-}
-
-// Save saves settings to ~/.config/claws.json
-func (s Settings) Save() error {
-	folder, err := getConfigFolder()
-	if err != nil {
-		return err
-	}
-
-	f, err := os.Create(folder + "claws.json")
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	s.Info = "Claws configuration file; more information can be found at https://howl.moe/claws"
-	e := json.NewEncoder(f)
-	e.SetIndent("", "\t")
-	return e.Encode(s)
-}
-
-func getConfigFolder() (string, error) {
-	u, err := user.Current()
-	if err != nil {
-		return "", err
-	}
-	folder := u.HomeDir + "/.config/"
-
-	err = os.MkdirAll(folder, 0755)
-
-	return folder, err
 }

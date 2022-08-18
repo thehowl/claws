@@ -121,10 +121,10 @@ func enterActionSendMessage(buf string) {
 func enterActionConnect(buf string) {
 	if buf != "" {
 		state.Settings.LastWebsocketURL = buf
-		state.Settings.Save()
+		state.Settings.Update("LastWebsocketURL")
 	}
 	state.Mode = modeInsert
-	go connect()
+	go connectWs()
 }
 
 func moveDown(v *gocui.View) {
@@ -208,7 +208,7 @@ func escEditor(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
 		state.Mode = modeConnect
 		return
 	case 'q':
-		err := state.Conn.Close()
+		err := state.Conn.CloseWs()
 		if err != nil {
 			state.Error(err.Error())
 		}
@@ -221,7 +221,7 @@ func escEditor(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
 	case 'j':
 		// toggle JSON formatting
 		state.Settings.JSONFormatting = !state.Settings.JSONFormatting
-		err := state.Settings.Save()
+		err := state.Settings.Update("JSONFormatting")
 		if err != nil {
 			state.Error(err.Error())
 		}
@@ -237,7 +237,7 @@ func escEditor(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
 		} else {
 			state.Settings.Timestamp = ""
 		}
-		err := state.Settings.Save()
+		err := state.Settings.Update("Timestamp")
 		if err != nil {
 			state.Error(err.Error())
 		}

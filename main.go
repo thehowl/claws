@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
-	"os"
+	"strings"
 
 	"github.com/jroimartin/gocui"
 )
@@ -14,9 +14,28 @@ var (
 )
 
 func main() {
-	g, err := gocui.NewGui(gocui.OutputNormal)
-	if err != nil {
-		log.Panicln(err)
+
+	var E error
+	defer func() {
+		if E != nil {
+			log.Panicln(E)
+		}
+	}()
+
+	// LOAD CONFIG FROM claws.json
+	if state.Settings, E = LoadSettings(); E != nil {
+		return
+	}
+
+	// CMDLINE CONFIGURATION + HELP
+	// MERGE CMDLINE FLAGS INTO SETTINGS
+	if E = state.Settings.ParseFlags(); E != nil {
+		return
+	}
+
+	g, E := gocui.NewGui(gocui.OutputNormal)
+	if E != nil {
+		return
 	}
 	defer g.Close()
 
@@ -26,16 +45,17 @@ func main() {
 	g.Cursor = true
 	g.InputEsc = true
 
-	if err := g.SetKeybinding("", gocui.KeyCtrlC, gocui.ModNone, quit); err != nil {
-		log.Panicln(err)
+	if E = g.SetKeybinding("", gocui.KeyCtrlC, gocui.ModNone, quit); E != nil {
+		return
 	}
 
-	if err := g.SetKeybinding("", gocui.KeyCtrlL, gocui.ModNone, clearBuffer); err != nil {
-		log.Panicln(err)
+	if E = g.SetKeybinding("", gocui.KeyCtrlL, gocui.ModNone, clearBuffer); E != nil {
+		return
 	}
 
-	if err := g.MainLoop(); err != nil && err != gocui.ErrQuit {
-		log.Panicln(err)
+	E = g.MainLoop()
+	if E == gocui.ErrQuit {
+		E = nil
 	}
 }
 
@@ -114,7 +134,7 @@ func layout(g *gocui.Gui) error {
 	modeBox(g)
 
 	if !state.FirstDrawDone {
-		go initialise()
+		go connectWs()
 		state.FirstDrawDone = true
 	}
 
@@ -125,22 +145,14 @@ func quit(g *gocui.Gui, v *gocui.View) error {
 	return gocui.ErrQuit
 }
 
-func initialise() {
-	err := state.Settings.Load()
-	if err != nil {
-		state.Error(err.Error())
+func connectWs() {
+
+	url := strings.TrimSpace(state.Settings.LastWebsocketURL)
+	if len(url) == 0 {
+		return
 	}
 
-	if len(os.Args) > 1 && os.Args[1] != "" {
-		state.Settings.LastWebsocketURL = os.Args[1]
-		state.Settings.Save()
-		connect()
-	}
-}
-
-func connect() {
-	err := state.StartConnection(state.Settings.LastWebsocketURL)
-	if err != nil {
-		state.Error(err.Error())
+	if E := state.StartConnection(url); E != nil {
+		state.Error(E.Error())
 	}
 }

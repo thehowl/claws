@@ -5,6 +5,7 @@ go 1.14
 require (
 	github.com/buger/jsonparser v0.0.0-20200322175846-f7e751efca13 // indirect
 	github.com/fatih/color v1.7.0
+	github.com/fatih/structs v1.1.0
 	github.com/gorilla/websocket v1.4.0
 	github.com/jroimartin/gocui v0.4.0
 	github.com/mattn/go-colorable v0.0.9 // indirect

@@ -2,16 +2,17 @@ package main
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/gorilla/websocket"
 )
 
 // WebSocket is a wrapper around a gorilla.WebSocket for claws.
 type WebSocket struct {
-	conn      *websocket.Conn
-	writeChan chan string
-	closed    bool
-	url       string
+	conn       *websocket.Conn
+	writeChan  chan string
+	pingTicker *time.Ticker
+	url        string
 }
 
 // URL returns the URL of the WebSocket.
@@ -19,39 +20,40 @@ func (w *WebSocket) URL() string {
 	return w.url
 }
 
-// ReadChannel retrieves a channel from which to read messages out of.
-func (w *WebSocket) ReadChannel() <-chan string {
-	ch := make(chan string, 16)
-	go w.readChannel(ch)
-	return ch
-}
-
 // Write writes a message to the WebSocket
 func (w *WebSocket) Write(msg string) {
 	w.writeChan <- msg
 }
 
-func (w *WebSocket) readChannel(c chan<- string) {
+// ReadChannel retrieves a channel from which to read messages out of.
+func (w *WebSocket) ReadChannel() <-chan string {
+	ch := make(chan string, 16)
+	go w.readPump(ch)
+	return ch
+}
+
+// NOTE: only used inside ReadChannel()
+func (w *WebSocket) readPump(ch chan<- string) {
+
+	defer w.CloseWs()
+	defer close(ch)
+
 	for {
 		_type, msg, err := w.conn.ReadMessage()
 		if err != nil {
-			if !w.closed {
-				state.Error(err.Error())
-				w.close(c)
-			}
+			state.Error(err.Error())
 			return
 		}
 
 		switch _type {
 		case websocket.TextMessage, websocket.BinaryMessage:
-			c <- string(msg)
+			ch <- string(msg)
 		case websocket.CloseMessage:
 			cl := "Closed WebSocket"
 			if len(msg) > 0 {
 				cl += " " + string(msg)
 			}
 			state.Debug(cl)
-			w.close(c)
 			return
 		case websocket.PingMessage, websocket.PongMessage:
 			if len(msg) > 0 {
@@ -62,36 +64,67 @@ func (w *WebSocket) readChannel(c chan<- string) {
 }
 
 func (w *WebSocket) writePump() {
-	for msg := range w.writeChan {
-		err := w.conn.WriteMessage(websocket.TextMessage, []byte(msg))
-		if err != nil {
-			state.Error(err.Error())
-			w.Close()
-			return
+
+	for {
+
+		var pingChan <-chan time.Time
+
+		if w.pingTicker != nil {
+			pingChan = w.pingTicker.C
+		}
+
+		select {
+
+		case msg, open := <-w.writeChan:
+
+			if !open {
+				return
+			}
+
+			if E := w.conn.WriteMessage(websocket.TextMessage, []byte(msg)); E != nil {
+				state.Error(E.Error())
+				return
+			}
+
+		case <-pingChan:
+
+			if E := w.conn.WriteMessage(websocket.PingMessage, []byte{}); E != nil {
+				state.Error(E.Error())
+				return
+			}
 		}
 	}
 }
 
-// Close closes the WebSocket connection.
-func (w *WebSocket) Close() error {
+// CloseWs closes the WebSocket connection.
+func (w *WebSocket) CloseWs() error {
+
 	if w == nil {
 		return nil
 	}
-	if w.closed {
-		return nil
-	}
-	w.closed = true
+
+	// NOTE: this could be a nasty rug-pull for editor.go
 	if state.Conn == w {
 		state.Conn = nil
 	}
-	close(w.writeChan)
-	return w.conn.Close()
-}
 
-// close finalises the WebSocket connection.
-func (w *WebSocket) close(c chan<- string) error {
-	close(c)
-	return w.Close()
+	if w.pingTicker != nil {
+		w.pingTicker.Stop()
+		w.pingTicker = nil
+	}
+
+	if w.writeChan != nil {
+		close(w.writeChan)
+		w.writeChan = nil
+	}
+
+	if w.conn != nil {
+		E := w.conn.Close()
+		w.conn = nil
+		return E
+	}
+
+	return nil
 }
 
 // WebSocketResponseError is the error returned when there is an error in
@@ -107,6 +140,7 @@ func (w WebSocketResponseError) Error() string {
 
 // CreateWebSocket initialises a new WebSocket connection.
 func CreateWebSocket(url string) (*WebSocket, error) {
+
 	state.Debug("Starting WebSocket connection to " + url)
 
 	conn, resp, err := websocket.DefaultDialer.Dial(url, nil)
@@ -121,6 +155,12 @@ func CreateWebSocket(url string) (*WebSocket, error) {
 		conn:      conn,
 		writeChan: make(chan string, 128),
 		url:       url,
+	}
+
+	// START PING TICKER IF ENABLED
+	oSet := state.Settings.Clone()
+	if oSet.PingSeconds > 0 {
+		ws.pingTicker = time.NewTicker(time.Duration(oSet.PingSeconds) * time.Second)
 	}
 
 	go ws.writePump()
