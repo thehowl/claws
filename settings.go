@@ -85,7 +85,7 @@ func LoadSettings() (oSet Settings, E error) {
 	}
 	defer f.Close()
 
-	E = json.NewDecoder(f).Decode(&oSet)
+	E = json.NewDecoder(f).Decode(&oSet.SettingsBase)
 	return
 }
 
@@ -109,7 +109,7 @@ func (s *Settings) Save() error {
 	s.Info = "Claws configuration file; more information can be found at https://howl.moe/claws"
 	e := json.NewEncoder(f)
 	e.SetIndent("", "\t")
-	return e.Encode(s)
+	return e.Encode(s.SettingsBase)
 }
 
 // applies ONLY specified fields of current settings to claws.json
