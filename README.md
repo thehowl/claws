@@ -78,6 +78,7 @@ Note that the path to the file is the same also on Windows.
 * **Timestamp:** a timestamp with which all messages to the console should be prefixed. The defaults can be toggled using the `t` key in esc mode, although you can also use your own prefix, following [Go's system of formatting dates](https://golang.org/pkg/time/#Time.Format). The default values are an empty string `""` or `"2006-01-02 15:04:05 "`.
 * **LastWebsocketURL:** URL of the last websocket you connected to. Used when connecting using the `c` key without specifying an URL.
 * **LastActions:** 50 most recent messages you sent to the console, used for seeking through history using up and down.
+* **PingSeconds:** Interval for sending websocket ping messages to the peer.  Disabled if <= 0.
 
 ### Pipe
 
