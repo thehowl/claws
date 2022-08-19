@@ -1,7 +1,10 @@
 package main
 
 import (
+	"errors"
+	"net"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -10,118 +13,182 @@ import (
 // WebSocket is a wrapper around a gorilla.WebSocket for claws.
 type WebSocket struct {
 	conn         *websocket.Conn
-	writeChan    chan string
+	writeChan    chan WsMsg
 	pingTicker   *time.Ticker
 	pingInterval time.Duration
 	url          string
+	sync.RWMutex // NOTE: for update private props
+
+	chWriEnd <-chan error
+
+	// REPORTING FUNCS
+	FnDebug func(string)
 }
 
-// URL returns the URL of the WebSocket.
-func (w *WebSocket) URL() string {
-	return w.url
-}
-
-// Write writes a message to the WebSocket
-func (w *WebSocket) Write(msg string) {
-	w.writeChan <- msg
-}
-
-// ReadChannel retrieves a channel from which to read messages out of.
-func (w *WebSocket) ReadChannel() <-chan string {
-	ch := make(chan string, 16)
-	go w.readPump(ch)
-	return ch
-}
-
-// NOTE: only used inside ReadChannel()
-func (w *WebSocket) readPump(ch chan<- string) {
-
-	defer w.CloseWs()
-	defer close(ch)
-
-	for {
-		_type, msg, err := w.conn.ReadMessage()
-		if err != nil {
-			state.Error(err.Error())
-			return
-		}
-
-		switch _type {
-		case websocket.TextMessage, websocket.BinaryMessage:
-			ch <- string(msg)
-		case websocket.CloseMessage:
-			cl := "Closed WebSocket"
-			if len(msg) > 0 {
-				cl += " " + string(msg)
-			}
-			state.Debug(cl)
-			return
-		case websocket.PingMessage, websocket.PongMessage:
-			if len(msg) > 0 {
-				state.Debug("Ping/pong with " + string(msg))
-			}
-		}
+func (w *WebSocket) Debug(v string) {
+	if (len(v) > 0) && (w.FnDebug != nil) {
+		w.FnDebug(v)
 	}
 }
 
-func (w *WebSocket) writePump() {
+// returns the URL of the WebSocket.
+func (w *WebSocket) URL() string {
+
+	w.RLock()
+	defer w.RUnlock()
+
+	return w.url
+}
+
+// writes a message to the WebSocket
+func (w *WebSocket) Write(msg WsMsg) {
+
+	w.RLock()
+	defer w.RUnlock()
+
+	if w.writeChan != nil {
+		w.writeChan <- msg
+	}
+}
+
+func (pWs *WebSocket) SetPingInterval(secs int) {
+
+	pWs.Lock()
+	defer pWs.Unlock()
+
+	pWs.setPingTicker(secs)
+}
+
+type WsMsg struct {
+	Msg  []byte
+	Type int
+}
+
+type WsReaderFunc func(*WsMsg, error)
+
+func readPump(pConn *websocket.Conn, fnRdr WsReaderFunc) error {
+
+	var E error
 
 	for {
 
-		select {
+		var M WsMsg
+		M.Type, M.Msg, E = pConn.ReadMessage()
+		if E != nil {
 
-		case msg, open := <-w.writeChan:
-
-			if !open {
-				return
+			// hide i/o after close error, since that's a typical
+			// way of ending this read loop
+			if errors.Is(E, net.ErrClosed) {
+				E = nil
 			}
+			break
+		}
 
-			if E := w.conn.WriteMessage(websocket.TextMessage, []byte(msg)); E != nil {
-				state.Error(E.Error())
-				return
-			}
+		fnRdr(&M, nil)
 
-		case <-w.pingTicker.C:
+		if M.Type == websocket.CloseMessage {
+			break
+		}
+	}
 
-			if w.pingInterval > 0 {
-				if E := w.conn.WriteMessage(websocket.PingMessage, []byte{}); E != nil {
-					state.Error(E.Error())
+	return E
+}
+
+// NOTE: closing chWrite terminates the inner goroutine
+func goWritePump(pConn *websocket.Conn, chPing <-chan time.Time) (
+	chWrite chan WsMsg, chExit chan error,
+) {
+
+	chWrite = make(chan WsMsg, 128)
+	chExit = make(chan error)
+
+	go func() {
+
+		var E error
+		defer func() {
+			chExit <- E
+		}()
+
+		for {
+
+			select {
+
+			case msg, open := <-chWrite:
+
+				if !open {
+					return
+				}
+
+				if E = pConn.WriteMessage(msg.Type, msg.Msg); E != nil {
+					return
+				}
+
+			case <-chPing:
+
+				if E = pConn.WriteMessage(websocket.PingMessage, []byte{}); E != nil {
 					return
 				}
 			}
 		}
-	}
+	}()
+
+	return
 }
 
-// CloseWs closes the WebSocket connection.
-func (w *WebSocket) CloseWs() error {
+func (pWs *WebSocket) IsOpen() bool {
+	pWs.RLock()
+	defer pWs.RUnlock()
+	return pWs.conn != nil
+}
 
-	if w == nil {
-		return nil
+// closes the WebSocket connection.
+func (pWs *WebSocket) WsClose() []error {
+	pWs.Lock()
+	defer pWs.Unlock()
+	return pWs.closeAndClear()
+}
+
+// NOTE: must be mutexed by caller (currently WsClose & WsOpen)
+func (pWs *WebSocket) closeAndClear() []error {
+
+	var eRet []error
+
+	// CLOSE OBJECTS
+	{
+		if pWs.pingTicker != nil {
+			pWs.pingTicker.Stop()
+		}
+
+		// THIS INDIRECTLY CLOSES THE WritePump
+		if pWs.writeChan != nil {
+			close(pWs.writeChan)
+		}
+
+		// THIS INDIRECTLY CLOSES THE ReadPump
+		if pWs.conn != nil {
+			if E := pWs.conn.Close(); E != nil {
+				eRet = append(eRet, E)
+			}
+		}
 	}
 
-	// NOTE: this could be a nasty rug-pull for editor.go
-	if state.Conn == w {
-		state.Conn = nil
+	// BLOCK & COLLECT CHANNEL EXIT ERRORS
+	if pWs.chWriEnd != nil {
+		if E := <-pWs.chWriEnd; E != nil {
+			eRet = append(eRet, E)
+		}
 	}
 
-	if w.pingTicker != nil {
-		w.pingTicker.Stop()
-		w.pingInterval = 0
+	// CLEAR PROPS
+	{
+		pWs.conn = nil
+		pWs.writeChan = nil
+		pWs.pingInterval = 0
+		pWs.url = ""
+		pWs.chWriEnd = nil
 	}
 
-	if w.writeChan != nil {
-		close(w.writeChan)
-		w.writeChan = nil
-	}
-
-	if w.conn != nil {
-		E := w.conn.Close()
-		w.conn = nil
-		return E
-	}
-
-	return nil
+	return eRet
 }
 
 // WebSocketResponseError is the error returned when there is an error in
@@ -135,43 +202,66 @@ func (w WebSocketResponseError) Error() string {
 	return w.Err.Error()
 }
 
-// CreateWebSocket initialises a new WebSocket connection.
-func CreateWebSocket(url string) (*WebSocket, error) {
+// opens a new WebSocket connection to `url`.
+func (pWs *WebSocket) WsOpen(url string, nPingSeconds int, fnRdr WsReaderFunc) []error {
 
-	state.Debug("Starting WebSocket connection to " + url)
+	pWs.Lock()
+	defer pWs.Unlock()
 
-	conn, resp, err := websocket.DefaultDialer.Dial(url, nil)
-	if err != nil {
-		return nil, WebSocketResponseError{
-			Err:  err,
-			Resp: resp,
+	if pWs.conn != nil {
+
+		// TODO: information message after setting ping duration
+		// TODO: debug replacement
+		pWs.Debug("Closing prior WebSocket connection")
+		if sErr := pWs.closeAndClear(); len(sErr) > 0 {
+			return sErr
 		}
 	}
 
-	ws := &WebSocket{
-		conn:      conn,
-		writeChan: make(chan string, 128),
-		url:       url,
+	pWs.Debug("Starting WebSocket connection to " + url)
+	conn, resp, err := websocket.DefaultDialer.Dial(url, nil)
+	if err != nil {
+		return []error{WebSocketResponseError{
+			Err:  err,
+			Resp: resp,
+		}}
 	}
+	pWs.conn = conn
+	pWs.url = url
 
-	// START PING TICKER IF ENABLED
-	oSet := state.Settings.Clone()
-	ws.pingTicker = time.NewTicker(time.Hour)
-	ws.SetPingInterval(oSet.PingSeconds)
+	// READ PUMP
+	go func() {
 
-	go ws.writePump()
+		if e := readPump(conn, fnRdr); e != nil {
+			fnRdr(nil, e)
+		}
 
-	return ws, nil
+		if sErr := pWs.WsClose(); len(sErr) > 0 {
+			for _, e := range sErr {
+				fnRdr(nil, e)
+			}
+		}
+	}()
+
+	// WRITE PUMP
+	pWs.setPingTicker(nPingSeconds)
+	pWs.writeChan, pWs.chWriEnd = goWritePump(conn, pWs.pingTicker.C)
+	return nil
 }
 
-func (pWs *WebSocket) SetPingInterval(secs int) {
+// NOTE: must be mutexed by caller
+func (pWs *WebSocket) setPingTicker(secs int) {
+
+	if pWs.pingTicker == nil {
+		pWs.pingTicker = time.NewTicker(time.Hour)
+	}
 
 	dur := time.Duration(secs) * time.Second
-	pWs.pingInterval = dur
-
 	if dur > 0 {
+		pWs.pingInterval = dur
 		pWs.pingTicker.Reset(dur)
 	} else {
+		pWs.pingInterval = 0
 		pWs.pingTicker.Stop()
 	}
 }

@@ -1,30 +1,31 @@
 package main
 
 import (
-	"errors"
+	"bytes"
+	"encoding/hex"
 	"io"
 	"os"
 	"os/exec"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/fatih/color"
+	"github.com/gorilla/websocket"
 	"github.com/jroimartin/gocui"
 )
-
-var state = &State{
-	ActionIndex: -1,
-	HideHelp:    len(os.Args) > 1,
-}
 
 // State is the central function managing the information of claws.
 type State struct {
 	// important to running the application as a whole
-	ActionIndex int
-	Mode        UIMode
-	Writer      io.Writer
-	Conn        *WebSocket
+	ActionIndex       int
+	Mode              UIMode
+	ConnectionStarted time.Time
+	wsConn            WebSocket
+
+	Writer     io.Writer
+	writerLock sync.RWMutex
 
 	// important for drawing
 	FirstDrawDone     bool
@@ -36,14 +37,6 @@ type State struct {
 	ExecuteFunc func(func(*gocui.Gui) error)
 
 	Settings Settings
-}
-
-func clearBuffer(*gocui.Gui, *gocui.View) error {
-	v := state.Writer.(*gocui.View)
-	v.Clear()
-	v.SetCursor(0, 0)
-	v.SetOrigin(0, 0)
-	return nil
 }
 
 // adds an action to LastActions
@@ -75,25 +68,81 @@ func (s *State) BrowseActions(move int) string {
 }
 
 // StartConnection begins a WebSocket connection to url.
-func (s *State) StartConnection(url string) error {
-	if s.Conn != nil {
-		return errors.New("state: conn is not nil")
+func (s *State) StartConnection(url string) {
+
+	// REPORT ERROR IF SET
+	var E error
+	defer func() {
+		if E != nil {
+			s.Error(E)
+		}
+	}()
+
+	url = strings.TrimSpace(url)
+	if len(url) > 0 {
+		s.Settings.LastWebsocketURL = url
+		s.Settings.Update("LastWebsocketURL")
+		return
 	}
-	ws, err := CreateWebSocket(url)
-	if err != nil {
-		return err
+
+	if len(s.Settings.LastWebsocketURL) == 0 {
+		return
 	}
-	s.Conn = ws
-	connectionStarted = time.Now()
-	go s.wsReader()
-	return nil
+
+	// TODO: channel into editor message pump?
+	s.wsConn.FnDebug = func(v string) {
+		s.Debug(v)
+	}
+
+	fnWsReadmsg := func(M *WsMsg, E error) {
+
+		if E != nil {
+			s.Error(E)
+		}
+
+		if M != nil {
+			s.DisplayFromServer(*M)
+		}
+	}
+
+	oSet := s.Settings.Clone()
+	sErrs := s.wsConn.WsOpen(
+		s.Settings.LastWebsocketURL,
+		oSet.PingSeconds,
+		fnWsReadmsg,
+	)
+	for _, E := range sErrs {
+		s.Error(E)
+	}
+
+	s.ConnectionStarted = time.Now()
 }
 
-func (s *State) wsReader() {
-	ch := s.Conn.ReadChannel()
-	for msg := range ch {
-		s.Server(msg)
+func (s *State) SetPingInterval(nSecs int) {
+
+	// CHANGE IN SETTINGS EVEN WHEN DISCONNECTED
+	s.Settings.PingSeconds = nSecs
+	s.Settings.Update("PingSeconds")
+
+	s.wsConn.SetPingInterval(nSecs)
+}
+
+func (s *State) WsSendMsg(msg string) {
+
+	if s.WsIsOpen() {
+		s.wsConn.Write(WsMsg{
+			Type: websocket.TextMessage,
+			Msg:  []byte(msg),
+		})
 	}
+}
+
+func (s *State) WsIsOpen() bool {
+	return s.wsConn.IsOpen()
+}
+
+func (s *State) WsClose() []error {
+	return s.wsConn.WsClose()
 }
 
 var (
@@ -105,56 +154,78 @@ var (
 
 // Debug prints debug information to the Writer, using light blue.
 func (s *State) Debug(x string) {
-	s.printToOut(printDebug, x)
+	s.printToOut(x, false, printDebug)
 }
 
 // Error prints an error to the Writer, using red.
-func (s *State) Error(x string) {
-	s.printToOut(printError, x)
+func (s *State) Error(x error) {
+	if x != nil {
+		s.printToOut(x.Error(), false, printError)
+	}
 }
 
-// User prints user-provided messages to the Writer, using green.
-func (s *State) User(x string) {
+// prints user-provided messages to the Writer, using green.
+func (s *State) DisplayInputFromUser(x string) {
 
 	oSet := s.Settings.Clone()
 
-	res, err := s.pipe(x, "out", oSet.Pipe.Out)
+	res, err := s.pipe([]byte(x), "out", oSet.Pipe.Out)
 	if err != nil {
-		s.Error(err.Error())
-		if res == "" || res == "\n" {
+		s.Error(err)
+		if len(bytes.TrimSpace(res)) == 0 {
 			return
 		}
 	}
 
-	s.printToOut(printUser, res)
+	s.printToOut(string(res), true, printUser)
 }
 
-// Server prints server-returned messages to the Writer, using white.
-func (s *State) Server(x string) {
+// prints server-returned messages to the Writer, using white.
+func (s *State) DisplayFromServer(M WsMsg) {
 
+	switch M.Type {
+	case websocket.PingMessage:
+		s.Debug("<PING MSG>")
+		return
+	case websocket.PongMessage:
+		s.Debug("<PONG MSG>")
+		return
+	case websocket.CloseMessage:
+		s.Debug("<CLOSE MSG>")
+		return
+	}
+
+	// TODO: persistent pipes?
 	oSet := s.Settings.Clone()
-
-	res, err := s.pipe(x, "in", oSet.Pipe.In)
+	res, err := s.pipe(M.Msg, "in", oSet.Pipe.In)
 	if err != nil {
-		s.Error(err.Error())
-		if res == "" || res == "\n" {
+		s.Error(err)
+		if len(bytes.TrimSpace(res)) == 0 {
 			return
 		}
 	}
 
-	if oSet.JSONFormatting {
-		res = attemptJSONFormatting(res)
+	var szText string
+	switch M.Type {
+	case websocket.BinaryMessage:
+		szText = strings.TrimSuffix(hex.Dump(res), "\n")
+
+	case websocket.TextMessage:
+		if oSet.JSONFormatting {
+			res = attemptJSONFormatting(res)
+		}
+		szText = strings.TrimSuffix(string(res), "\n")
 	}
 
-	s.printToOut(printServer, res)
+	s.printToOut(szText, true, printServer)
 }
 
 var (
-	sessionStarted    = time.Now()
-	connectionStarted time.Time
+	sessionStarted = time.Now()
 )
 
-func (s *State) pipe(data, t string, command []string) (string, error) {
+func (s *State) pipe(data []byte, t string, command []string) ([]byte, error) {
+
 	if len(command) < 1 {
 		return data, nil
 	}
@@ -164,31 +235,67 @@ func (s *State) pipe(data, t string, command []string) (string, error) {
 		os.Environ(),
 		"CLAWS_PIPE_TYPE="+t,
 		"CLAWS_SESSION="+strconv.FormatInt(sessionStarted.UnixNano()/1000, 10),
-		"CLAWS_CONNECTION="+strconv.FormatInt(connectionStarted.UnixNano()/1000, 10),
-		"CLAWS_WS_URL="+s.Conn.URL(),
+		"CLAWS_CONNECTION="+strconv.FormatInt(s.ConnectionStarted.UnixNano()/1000, 10),
+		"CLAWS_WS_URL="+s.wsConn.URL(),
 	)
 	// set up stdin
-	stdin := strings.NewReader(data)
+	stdin := bytes.NewReader(data)
 	c.Stdin = stdin
 
 	// run the command
-	res, err := c.Output()
-	return string(res), err
+	return c.Output()
 }
 
-func (s *State) printToOut(f func(io.Writer, ...interface{}) (int, error), str string) {
+func (s *State) printToOut(
+	str string,
+	bIndent bool,
+	f func(io.Writer, ...interface{}) (int, error),
+) {
 
+	// NOTE: mutexed to sequentialize whole writes between
+	//       UI goroutine, read pump, & write pump
+	s.writerLock.Lock()
+	defer s.writerLock.Unlock()
+
+	var szTs string
 	oSet := s.Settings.Clone()
-
-	if oSet.Timestamp != "" {
-		str = time.Now().Format(oSet.Timestamp) + str
+	if len(oSet.Timestamp) > 0 {
+		szTs = time.Now().Format(oSet.Timestamp)
 	}
 
-	if str != "" && str[len(str)-1] != '\n' {
-		str += "\n"
-	}
 	s.ExecuteFunc(func(*gocui.Gui) error {
-		_, err := f(s.Writer, str)
-		return err
+
+		// TIMESTAMP, NOT INDENTED
+		bHasTs := len(szTs) > 0
+		if bHasTs {
+			if _, e := f(s.Writer, szTs); e != nil {
+				return e
+			}
+		}
+
+		if bIndent {
+
+			if bHasTs {
+				if _, e := f(s.Writer, "\n"); e != nil {
+					return e
+				}
+			}
+
+			const INDENT = "  "
+			sLines := strings.Split(str, "\n")
+			for _, szLine := range sLines {
+				if _, e := f(s.Writer, INDENT+szLine+"\n"); e != nil {
+					return e
+				}
+			}
+
+		} else {
+
+			if _, e := f(s.Writer, str+"\n"); e != nil {
+				return e
+			}
+		}
+
+		return nil
 	})
 }

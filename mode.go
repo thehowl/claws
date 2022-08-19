@@ -28,14 +28,15 @@ var modeChars = map[UIMode]ModeStyle{
 	modeSetPing:   ModeStyle{'p', gocui.ColorRed},
 }
 
-func modeBox(g *gocui.Gui) {
+func modeBox(pSt *State, g *gocui.Gui) {
+
 	maxX, maxY := g.Size()
 
 	for i := 0; i < maxX; i++ {
 		g.SetRune(i, maxY-2, '─', gocui.ColorWhite, gocui.ColorBlack)
 	}
 
-	ch := modeChars[state.Mode]
+	ch := modeChars[pSt.Mode]
 	g.SetRune(0, maxY-1, ch.Char, gocui.ColorWhite|gocui.AttrBold, ch.BgColor)
 	g.SetRune(1, maxY-1, ' ', gocui.ColorBlack, 0)
 }

@@ -1,83 +1,181 @@
 package main
 
 import (
+	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 
 	"github.com/jroimartin/gocui"
 )
 
-func editor(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
-	state.HideHelp = true
+type LayoutFunc func(*gocui.Gui) error
 
-	if state.Mode == modeEscape {
-		escEditor(v, key, ch, mod)
-		return
-	}
+func NewLayoutFunc(pSt *State) LayoutFunc {
 
-	if ch != 0 && mod == 0 {
-		v.EditWrite(ch)
-	}
+	fnEditor := NewEditorFunc(pSt)
 
-	switch key {
-	case gocui.KeyEsc:
-		state.Mode = modeEscape
-		state.KeepAutoscrolling = true
+	return func(g *gocui.Gui) error {
 
-	// Space, backspace, Del
-	case gocui.KeySpace:
-		v.EditWrite(' ')
-	case gocui.KeyBackspace, gocui.KeyBackspace2:
-		v.EditDelete(true)
-		moveAhead(v)
-	case gocui.KeyDelete:
-		v.EditDelete(false)
-
-	// Cursor movement
-	case gocui.KeyArrowLeft:
-		v.MoveCursor(-1, 0, false)
-		moveAhead(v)
-	case gocui.KeyArrowRight:
-		x, _ := v.Cursor()
-		x2, _ := v.Origin()
-		x += x2
-		buf := v.Buffer()
-		// Position of cursor should be on space that gocui adds at the end if at end
-		if buf != "" && len(strings.TrimRight(buf, "\r\n")) > x {
-			v.MoveCursor(1, 0, false)
+		// Set when doing a double-esc
+		if pSt.ShouldQuit {
+			return gocui.ErrQuit
 		}
 
-	// Insert/Overwrite
-	case gocui.KeyInsert:
-		if state.Mode == modeInsert {
-			state.Mode = modeOverwrite
+		maxX, maxY := g.Size()
+		if v, err := g.SetView("cmd", 1, maxY-2, maxX, maxY); err != nil {
+			if err != gocui.ErrUnknownView {
+				return err
+			}
+			v.Frame = false
+			v.Editable = true
+			v.Editor = gocui.EditorFunc(fnEditor)
+			v.Clear()
+		}
+
+		v, err := g.SetView("out", -1, -1, maxX, maxY-2)
+		if err != nil {
+			if err != gocui.ErrUnknownView {
+				return err
+			}
+			v.Wrap = true
+			v.Editor = gocui.EditorFunc(fnEditor)
+			v.Editable = true
+			pSt.Writer = v
+		}
+
+		// For more information about KeepAutoscrolling, see Scrolling in editor.go
+		v.Autoscroll = pSt.Mode != modeEscape || pSt.KeepAutoscrolling
+		g.Mouse = pSt.Mode == modeEscape
+		if v, err := g.SetView("help", maxX/2-23, maxY/2-6, maxX/2+23, maxY/2+6); err != nil {
+			if err != gocui.ErrUnknownView {
+				return err
+			}
+			v.Wrap = true
+			v.Title = "Welcome"
+			if version == "devel" && commit != "" {
+				version = commit
+				if len(version) > 5 {
+					version = version[:5]
+				}
+			}
+			v.Write([]byte(fmt.Sprintf(welcomeScreen, version)))
+		}
+
+		if pSt.HideHelp {
+			g.SetViewOnTop("out")
 		} else {
-			state.Mode = modeInsert
-		}
-		v.Overwrite = state.Mode == modeOverwrite
-
-	// History browse
-	case gocui.KeyArrowDown:
-		n := state.BrowseActions(-1)
-		setText(v, n)
-	case gocui.KeyArrowUp:
-		n := state.BrowseActions(1)
-		setText(v, n)
-
-	case gocui.KeyEnter:
-		buf := v.Buffer()
-		v.Clear()
-		v.SetCursor(0, 0)
-
-		if buf != "" {
-			buf = buf[:len(buf)-1]
-		}
-		if strings.TrimSpace(buf) != "" {
-			state.PushAction(buf)
-			state.ActionIndex = -1
+			g.SetViewOnTop("help")
 		}
 
-		enterActions[state.Mode](buf)
+		curView := "cmd"
+		if pSt.Mode == modeEscape {
+			curView = "out"
+		}
+
+		if _, err := g.SetCurrentView(curView); err != nil {
+			return err
+		}
+
+		modeBox(pSt, g)
+
+		if !pSt.FirstDrawDone {
+			go pSt.StartConnection("")
+			pSt.FirstDrawDone = true
+		}
+
+		return nil
+	}
+}
+
+type ActionFunc func(*State, string)
+
+// enterActions is the actions that can be done when KeyEnter is pressed
+// (outside of modeEscape), based on the mode.
+var enterActions = map[UIMode]ActionFunc{
+	modeInsert:    enterActionSendMessage,
+	modeOverwrite: enterActionSendMessage,
+	modeConnect:   enterActionConnect,
+	modeSetPing:   enterActionSetPing,
+}
+
+type EditorFunc func(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier)
+
+func NewEditorFunc(pSt *State) EditorFunc {
+
+	return func(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
+
+		pSt.HideHelp = true
+
+		if pSt.Mode == modeEscape {
+			escEditor(pSt, v, key, ch, mod)
+			return
+		}
+
+		if ch != 0 && mod == 0 {
+			v.EditWrite(ch)
+		}
+
+		switch key {
+		case gocui.KeyEsc:
+			pSt.Mode = modeEscape
+			pSt.KeepAutoscrolling = true
+
+		// Space, backspace, Del
+		case gocui.KeySpace:
+			v.EditWrite(' ')
+		case gocui.KeyBackspace, gocui.KeyBackspace2:
+			v.EditDelete(true)
+			moveAhead(v)
+		case gocui.KeyDelete:
+			v.EditDelete(false)
+
+		// Cursor movement
+		case gocui.KeyArrowLeft:
+			v.MoveCursor(-1, 0, false)
+			moveAhead(v)
+		case gocui.KeyArrowRight:
+			x, _ := v.Cursor()
+			x2, _ := v.Origin()
+			x += x2
+			buf := v.Buffer()
+			// Position of cursor should be on space that gocui adds at the end if at end
+			if buf != "" && len(strings.TrimRight(buf, "\r\n")) > x {
+				v.MoveCursor(1, 0, false)
+			}
+
+		// Insert/Overwrite
+		case gocui.KeyInsert:
+			if pSt.Mode == modeInsert {
+				pSt.Mode = modeOverwrite
+			} else {
+				pSt.Mode = modeInsert
+			}
+			v.Overwrite = pSt.Mode == modeOverwrite
+
+		// History browse
+		case gocui.KeyArrowDown:
+			n := pSt.BrowseActions(-1)
+			setText(v, n)
+		case gocui.KeyArrowUp:
+			n := pSt.BrowseActions(1)
+			setText(v, n)
+
+		case gocui.KeyEnter:
+			buf := v.Buffer()
+			v.Clear()
+			v.SetCursor(0, 0)
+
+			if buf != "" {
+				buf = buf[:len(buf)-1]
+			}
+			if strings.TrimSpace(buf) != "" {
+				pSt.PushAction(buf)
+				pSt.ActionIndex = -1
+			}
+
+			enterActions[pSt.Mode](pSt, buf)
+		}
 	}
 }
 
@@ -104,47 +202,30 @@ func moveAhead(v *gocui.View) {
 	}
 }
 
-type ActionFunc func(string)
-
-// enterActions is the actions that can be done when KeyEnter is pressed
-// (outside of modeEscape), based on the mode.
-var enterActions = map[UIMode]ActionFunc{
-	modeInsert:    enterActionSendMessage,
-	modeOverwrite: enterActionSendMessage,
-	modeConnect:   enterActionConnect,
-	modeSetPing:   enterActionSetPing,
-}
-
-func enterActionSetPing(buf string) {
+func enterActionSetPing(pSt *State, buf string) {
 
 	secs, E := strconv.Atoi(strings.TrimSpace(buf))
-
-	if state.Conn != nil {
-
-		if E != nil {
-			secs = 0
-		}
-
-		state.Conn.SetPingInterval(secs)
+	if E != nil {
+		secs = 0
 	}
 
-	state.Mode = modeInsert
+	pSt.SetPingInterval(secs)
+
+	pSt.Mode = modeInsert
 }
 
-func enterActionSendMessage(buf string) {
-	if state.Conn != nil && strings.TrimSpace(buf) != "" {
-		state.User(buf)
-		state.Conn.Write(buf)
+func enterActionSendMessage(pSt *State, buf string) {
+
+	if strings.TrimSpace(buf) != "" {
+		pSt.DisplayInputFromUser(buf)
+		pSt.WsSendMsg(buf)
 	}
 }
 
-func enterActionConnect(buf string) {
-	if buf != "" {
-		state.Settings.LastWebsocketURL = buf
-		state.Settings.Update("LastWebsocketURL")
-	}
-	state.Mode = modeInsert
-	go connectWs()
+func enterActionConnect(pSt *State, buf string) {
+
+	pSt.Mode = modeInsert
+	go pSt.StartConnection(buf)
 }
 
 func moveDown(v *gocui.View) {
@@ -155,12 +236,13 @@ func moveDown(v *gocui.View) {
 }
 
 // escEditor handles keys when esc has been pressed.
-func escEditor(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
+func escEditor(pSt *State, v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
+
 	switch key {
 	case gocui.KeyEsc:
 		// silently ignore - we're already in esc mode!
 	case gocui.KeyInsert:
-		state.Mode = modeInsert
+		pSt.Mode = modeInsert
 
 	// Scrolling
 	//
@@ -168,38 +250,38 @@ func escEditor(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
 	// the user can move through the output without having text moving underneath
 	// the cursor.
 	case gocui.KeyArrowUp, gocui.MouseWheelDown:
-		state.KeepAutoscrolling = false
+		pSt.KeepAutoscrolling = false
 		v.MoveCursor(0, -1, false)
 	case gocui.KeyArrowDown, gocui.MouseWheelUp:
-		state.KeepAutoscrolling = false
+		pSt.KeepAutoscrolling = false
 		moveDown(v)
 	case gocui.KeyArrowLeft:
-		state.KeepAutoscrolling = false
+		pSt.KeepAutoscrolling = false
 		v.MoveCursor(-1, 0, false)
 	case gocui.KeyArrowRight:
-		state.KeepAutoscrolling = false
+		pSt.KeepAutoscrolling = false
 		_, y := v.Cursor()
 		if _, err := v.Word(0, y); err == nil {
 			v.MoveCursor(1, 0, false)
 		}
 	case gocui.KeyPgup:
-		state.KeepAutoscrolling = false
+		pSt.KeepAutoscrolling = false
 		_, ySize := v.Size()
 		for i := 0; i < ySize; i++ {
 			v.MoveCursor(0, -1, false)
 		}
 	case gocui.KeyPgdn:
-		state.KeepAutoscrolling = false
+		pSt.KeepAutoscrolling = false
 		_, ySize := v.Size()
 		for i := 0; i < ySize; i++ {
 			moveDown(v)
 		}
 	case gocui.KeyHome:
-		state.KeepAutoscrolling = false
+		pSt.KeepAutoscrolling = false
 		v.SetCursor(0, 0)
 		v.SetOrigin(0, 0)
 	case gocui.KeyEnd:
-		state.KeepAutoscrolling = false
+		pSt.KeepAutoscrolling = false
 		lines := len(strings.Split(v.ViewBuffer(), "\n"))
 		_, y := v.Size()
 
@@ -221,62 +303,77 @@ func escEditor(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
 
 	switch ch {
 	case 'c':
-		if state.Conn != nil {
-			state.Error("You need to close the connection before starting a new one: <ESC>q")
+		if pSt.WsIsOpen() {
+			pSt.Error(errors.New("You need to close the connection before starting a new one: <ESC>q"))
 			return
 		}
-		state.Mode = modeConnect
+		pSt.Mode = modeConnect
 		return
 	case 'p':
-		state.Mode = modeSetPing
+		pSt.Mode = modeSetPing
 		return
 	case 'q':
-		err := state.Conn.CloseWs()
-		if err != nil {
-			state.Error(err.Error())
+		if err := pSt.WsClose(); len(err) > 0 {
+			for _, e := range err {
+				pSt.Error(e)
+			}
 		}
-		state.Debug("WebSocket closed (use C-c to quit)")
+		pSt.Debug("WebSocket closed (use C-c to quit)")
 		return
 	case 'i':
 		// goes into insert mode
 	case 'h':
-		state.HideHelp = false
+		pSt.HideHelp = false
 	case 'j':
 		// toggle JSON formatting
-		state.Settings.JSONFormatting = !state.Settings.JSONFormatting
-		err := state.Settings.Update("JSONFormatting")
+		pSt.Settings.JSONFormatting = !pSt.Settings.JSONFormatting
+		err := pSt.Settings.Update("JSONFormatting")
 		if err != nil {
-			state.Error(err.Error())
+			pSt.Error(err)
 		}
 		e := "disabled"
-		if state.Settings.JSONFormatting {
+		if pSt.Settings.JSONFormatting {
 			e = "enabled"
 		}
-		state.Debug("JSON formatting " + e)
+		pSt.Debug("JSON formatting " + e)
 	case 't':
 		// toggle timestamps
-		if state.Settings.Timestamp == "" {
-			state.Settings.Timestamp = "2006-01-02 15:04:05 "
+		if pSt.Settings.Timestamp == "" {
+			pSt.Settings.Timestamp = "2006-01-02 15:04:05 "
 		} else {
-			state.Settings.Timestamp = ""
+			pSt.Settings.Timestamp = ""
 		}
-		err := state.Settings.Update("Timestamp")
+		err := pSt.Settings.Update("Timestamp")
 		if err != nil {
-			state.Error(err.Error())
+			pSt.Error(err)
 		}
 		e := "disabled"
-		if state.Settings.Timestamp != "" {
+		if pSt.Settings.Timestamp != "" {
 			e = "enabled"
 		}
-		state.Debug("Timestamps " + e)
+		pSt.Debug("Timestamps " + e)
 	case 'R':
 		// overwrite mode
-		state.Mode = modeOverwrite
+		pSt.Mode = modeOverwrite
 		return
 	default:
-		state.Debug("No action for key '" + string(ch) + "'")
+		pSt.Debug("No action for key '" + string(ch) + "'")
 		return
 	}
 
-	state.Mode = modeInsert
+	pSt.Mode = modeInsert
 }
+
+const welcomeScreen = `
+                claws %s
+          Awesome WebSocket CLient
+
+    C-c           to quit
+    <ESC>c        to write an URL of a
+                  websocket and connect
+    <ESC>q        to close the websocket
+		<ESC>p        set ping interval in seconds
+    <UP>/<DOWN>   move through your history
+
+           https://howl.moe/claws
+`

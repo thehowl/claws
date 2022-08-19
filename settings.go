@@ -12,15 +12,6 @@ import (
 	"github.com/fatih/structs"
 )
 
-/*
-	TODO: issues
-
-		! goroutine safety (esp global Conn pointer)
-		- done/wait channels for read/write pumps
-		- binary messages
-		- pipe persistence
-*/
-
 func getConfigFolder() (string, error) {
 
 	u, err := user.Current()

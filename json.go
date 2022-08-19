@@ -6,16 +6,16 @@ import (
 	"howl.moe/nanojson"
 )
 
-func attemptJSONFormatting(msg string) string {
+func attemptJSONFormatting(msg []byte) []byte {
 	virtualV := nanojson.Pools.Value.Get()
 	v := virtualV.(*nanojson.Value)
-	err := v.Parse([]byte(msg))
+	err := v.Parse(msg)
 	if err != nil {
 		return msg
 	}
 	buf := new(bytes.Buffer)
 	printValue(buf, v, "")
-	return buf.String()
+	return buf.Bytes()
 }
 
 func printValue(buf *bytes.Buffer, v *nanojson.Value, indent string) {
