@@ -372,7 +372,7 @@ const welcomeScreen = `
     <ESC>c        to write an URL of a
                   websocket and connect
     <ESC>q        to close the websocket
-		<ESC>p        set ping interval in seconds
+    <ESC>p        set ping interval in seconds
     <UP>/<DOWN>   move through your history
 
            https://howl.moe/claws
