@@ -41,14 +41,17 @@ func (w *WebSocket) URL() string {
 }
 
 // writes a message to the WebSocket
-func (w *WebSocket) Write(msg WsMsg) {
+func (w *WebSocket) Write(msg WsMsg) bool {
 
 	w.RLock()
 	defer w.RUnlock()
 
-	if w.writeChan != nil {
+	if w.writeChan != nil && w.conn != nil {
 		w.writeChan <- msg
+		return true
 	}
+
+	return false
 }
 
 func (pWs *WebSocket) SetPingInterval(secs int) {
@@ -68,30 +71,30 @@ type WsReaderFunc func(*WsMsg, error)
 
 func readPump(pConn *websocket.Conn, fnRdr WsReaderFunc) error {
 
-	var E error
+	var err error
 
 	for {
 
-		var M WsMsg
-		M.Type, M.Msg, E = pConn.ReadMessage()
-		if E != nil {
+		var msg WsMsg
+		msg.Type, msg.Msg, err = pConn.ReadMessage()
+		if err != nil {
 
 			// hide i/o after close error, since that's a typical
 			// way of ending this read loop
-			if errors.Is(E, net.ErrClosed) {
-				E = nil
+			if errors.Is(err, net.ErrClosed) {
+				err = nil
 			}
 			break
 		}
 
-		fnRdr(&M, nil)
+		fnRdr(&msg, nil)
 
-		if M.Type == websocket.CloseMessage {
+		if msg.Type == websocket.CloseMessage {
 			break
 		}
 	}
 
-	return E
+	return err
 }
 
 // NOTE: closing chWrite terminates the inner goroutine
@@ -110,22 +113,17 @@ func goWritePump(pConn *websocket.Conn, chPing <-chan time.Time) (
 		}()
 
 		for {
-
 			select {
-
 			case msg, open := <-chWrite:
-
 				if !open {
 					return
 				}
-
 				if E = pConn.WriteMessage(msg.Type, msg.Msg); E != nil {
 					return
 				}
 
 			case <-chPing:
-
-				if E = pConn.WriteMessage(websocket.PingMessage, []byte{}); E != nil {
+				if E = pConn.WriteMessage(websocket.PingMessage, nil); E != nil {
 					return
 				}
 			}

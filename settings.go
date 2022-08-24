@@ -50,7 +50,7 @@ func (s *Settings) Clone() SettingsBase {
 	s.RLock()
 	defer s.RUnlock()
 
-	RET := s.SettingsBase
+	ret := s.SettingsBase
 
 	fnCopy := func(dst *[]string, src []string) {
 		if src == nil {
@@ -59,11 +59,11 @@ func (s *Settings) Clone() SettingsBase {
 		*dst = make([]string, len(src))
 		copy(*dst, src)
 	}
-	fnCopy(&RET.LastActions, s.LastActions)
-	fnCopy(&RET.Pipe.In, s.Pipe.In)
-	fnCopy(&RET.Pipe.Out, s.Pipe.Out)
+	fnCopy(&ret.LastActions, s.LastActions)
+	fnCopy(&ret.Pipe.In, s.Pipe.In)
+	fnCopy(&ret.Pipe.Out, s.Pipe.Out)
 
-	return RET
+	return ret
 }
 
 // loads settings from ~/.config/claws.json
@@ -168,10 +168,9 @@ func (pSet *Settings) ParseFlags() error {
 	// HELP MESSAGE
 	flag.Usage = func() {
 
-		fmt.Fprint(os.Stdout, SZ_HELP_PREFIX)
+		fmt.Fprint(os.Stderr, cliHelpPrefix)
 		flag.PrintDefaults()
-		fmt.Fprint(os.Stdout, SZ_HELP_SUFFIX)
-		fmt.Fprint(os.Stdout, "\n")
+		fmt.Fprint(os.Stderr, cliHelpSuffix)
 	}
 
 	flag.BoolVar(&pSet.JSONFormatting, "j", pSet.JSONFormatting, "Start with JSON formatting enabled.")
@@ -193,7 +192,7 @@ func (pSet *Settings) ParseFlags() error {
 	return nil
 }
 
-const SZ_HELP_PREFIX = `COMMAND
+const cliHelpPrefix = `COMMAND
 
   claws [OPTION...] [WEBSOCKET_URL]
 
@@ -201,7 +200,7 @@ OPTIONS
 
 `
 
-const SZ_HELP_SUFFIX = `
+const cliHelpSuffix = `
 USAGE
 
   Key Action

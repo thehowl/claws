@@ -14,10 +14,10 @@ var (
 
 func main() {
 
-	var E error
+	var err error
 	defer func() {
-		if E != nil {
-			fmt.Fprintln(os.Stderr, E)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
 	}()
@@ -27,19 +27,19 @@ func main() {
 		HideHelp:    len(os.Args) > 1,
 	}
 
-	// LOAD CONFIG FROM claws.json
-	if oState.Settings, E = LoadSettings(); E != nil {
+	// load config from claws.json
+	if oState.Settings, err = LoadSettings(); err != nil {
 		return
 	}
 
-	// CMDLINE CONFIGURATION + HELP
-	// MERGE CMDLINE FLAGS INTO SETTINGS
-	if E = oState.Settings.ParseFlags(); E != nil {
+	// cmdline configuration + help
+	// merge cmdline flags into settings
+	if err = oState.Settings.ParseFlags(); err != nil {
 		return
 	}
 
-	g, E := gocui.NewGui(gocui.OutputNormal)
-	if E != nil {
+	g, err := gocui.NewGui(gocui.OutputNormal)
+	if err != nil {
 		return
 	}
 	defer g.Close()
@@ -51,7 +51,7 @@ func main() {
 	g.Cursor = true
 	g.InputEsc = true
 
-	if E = g.SetKeybinding("", gocui.KeyCtrlC, gocui.ModNone, quit); E != nil {
+	if err = g.SetKeybinding("", gocui.KeyCtrlC, gocui.ModNone, quit); err != nil {
 		return
 	}
 
@@ -63,13 +63,13 @@ func main() {
 		return nil
 	}
 
-	if E = g.SetKeybinding("", gocui.KeyCtrlL, gocui.ModNone, fnClearBuf); E != nil {
+	if err = g.SetKeybinding("", gocui.KeyCtrlL, gocui.ModNone, fnClearBuf); err != nil {
 		return
 	}
 
-	E = g.MainLoop()
-	if E == gocui.ErrQuit {
-		E = nil
+	err = g.MainLoop()
+	if err == gocui.ErrQuit {
+		err = nil
 	}
 }
 

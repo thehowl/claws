@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -15,25 +14,38 @@ func NewLayoutFunc(pSt *State) LayoutFunc {
 
 	fnEditor := NewEditorFunc(pSt)
 
-	return func(g *gocui.Gui) error {
+	return func(pGui *gocui.Gui) error {
 
 		// Set when doing a double-esc
 		if pSt.ShouldQuit {
 			return gocui.ErrQuit
 		}
 
-		maxX, maxY := g.Size()
-		if v, err := g.SetView("cmd", 1, maxY-2, maxX, maxY); err != nil {
+		maxX, maxY := pGui.Size()
+		if v, err := pGui.SetView("cmd", 1, maxY-2, maxX, maxY); err != nil {
 			if err != gocui.ErrUnknownView {
 				return err
 			}
 			v.Frame = false
-			v.Editable = true
 			v.Editor = gocui.EditorFunc(fnEditor)
+			v.Editable = true
 			v.Clear()
 		}
 
-		v, err := g.SetView("out", -1, -1, maxX, maxY-2)
+		// NOTE: preliminary status bar impl
+		// var errView error
+		// vFlags, err := pGui.SetView("flags", -1, maxY-2, maxX, maxY)
+		// if err != nil {
+		// 	if err != gocui.ErrUnknownView {
+		// 		return err
+		// 	}
+		// 	vFlags.FgColor = gocui.ColorBlue
+		// 	vFlags.Frame = false
+		// 	vFlags.Editable = false
+		// }
+
+		// View: output for received messages (rest)
+		v, err := pGui.SetView("out", -1, -1, maxX, maxY-2)
 		if err != nil {
 			if err != gocui.ErrUnknownView {
 				return err
@@ -46,11 +58,25 @@ func NewLayoutFunc(pSt *State) LayoutFunc {
 
 		// For more information about KeepAutoscrolling, see Scrolling in editor.go
 		v.Autoscroll = pSt.Mode != modeEscape || pSt.KeepAutoscrolling
-		g.Mouse = pSt.Mode == modeEscape
-		if v, err := g.SetView("help", maxX/2-23, maxY/2-6, maxX/2+23, maxY/2+6); err != nil {
+		pGui.Mouse = pSt.Mode == modeEscape
+
+		// calc dims of "Welcome" message
+		sLines := strings.Split(welcomeScreen, "\n")
+		hY := len(sLines) / 2
+		hX := 0
+		for _, line := range sLines {
+			if len(line) > hX {
+				hX = len(line)
+			}
+		}
+		hX /= 2
+
+		// View: "Welcome" Message
+		if v, err := pGui.SetView("help", (maxX/2)-hX, (maxY/2)-hY-1, (maxX/2)+hX+3, (maxY/2)+hY); err != nil {
 			if err != gocui.ErrUnknownView {
 				return err
 			}
+			v.Frame = true
 			v.Wrap = true
 			v.Title = "Welcome"
 			if version == "devel" && commit != "" {
@@ -63,9 +89,9 @@ func NewLayoutFunc(pSt *State) LayoutFunc {
 		}
 
 		if pSt.HideHelp {
-			g.SetViewOnTop("out")
+			pGui.SetViewOnTop("out")
 		} else {
-			g.SetViewOnTop("help")
+			pGui.SetViewOnTop("help")
 		}
 
 		curView := "cmd"
@@ -73,11 +99,52 @@ func NewLayoutFunc(pSt *State) LayoutFunc {
 			curView = "out"
 		}
 
-		if _, err := g.SetCurrentView(curView); err != nil {
+		if _, err := pGui.SetCurrentView(curView); err != nil {
 			return err
 		}
 
-		modeBox(pSt, g)
+		modeBox(pSt, pGui)
+
+		// NOTE: preliminary status bar impl
+		// ms := modeChars[pSt.Mode]
+		// vFlags.Clear()
+		// info := pSt.GetWsInfo()
+		// // TODO: honor BgColor for ms.Descr
+		// sParts := []string{ms.Descr}
+
+		// if info.IsOpen {
+		// 	sParts = append(sParts, info.Url)
+		// } else {
+		// 	sParts = append(sParts, "CLOSED")
+		// }
+
+		// ST := info.Settings
+		// if ST.PingSeconds > 0 {
+		// 	sParts = append(sParts, fmt.Sprintf("PNG=%ds", ST.PingSeconds))
+		// } else {
+		// 	sParts = append(sParts, "PNG=N")
+		// }
+
+		// if ST.JSONFormatting {
+		// 	sParts = append(sParts, "FMTJSON=Y")
+		// } else {
+		// 	sParts = append(sParts, "FMTJSON=N")
+		// }
+
+		// if len(ST.Timestamp) > 0 {
+		// 	sParts = append(sParts, "TS=Y")
+		// } else {
+		// 	sParts = append(sParts, "TS=N")
+		// }
+
+		// sLeft := strings.Join(sParts, " | ")
+
+		// vFlags.Write([]byte(sLeft))
+
+		// TODO: "out" notice of new ping interval
+		// TODO: don't indent when timestamps are disabled
+		// TODO: connection duration clock?
+		// TODO: change > to : in command mode
 
 		if !pSt.FirstDrawDone {
 			go pSt.StartConnection("")
@@ -88,11 +155,39 @@ func NewLayoutFunc(pSt *State) LayoutFunc {
 	}
 }
 
+func modeBox(pSt *State, g *gocui.Gui) {
+
+	maxX, maxY := g.Size()
+
+	for i := 0; i < maxX; i++ {
+		g.SetRune(i, maxY-2, '─', gocui.ColorWhite, gocui.ColorBlack)
+	}
+
+	ch := modeChars[pSt.Mode]
+	g.SetRune(0, maxY-1, ch.Char, gocui.ColorWhite|gocui.AttrBold, ch.BgColor)
+	g.SetRune(1, maxY-1, ' ', gocui.ColorBlack, 0)
+}
+
+// NOTE: preliminary status bar impl
+// func modeBox(pSt *State, pGui *gocui.Gui) {
+//
+// 	maxX, maxY := pGui.Size()
+//
+// 	for i := 0; i < maxX; i++ {
+// 		pGui.SetRune(i, maxY-3, '─', gocui.ColorWhite, gocui.ColorBlack)
+// 	}
+//
+// 	ch := modeChars[pSt.Mode]
+// 	maxY -= 2
+// 	pGui.SetRune(0, maxY, ch.Char, gocui.ColorWhite|gocui.AttrBold, ch.BgColor)
+// 	pGui.SetRune(1, maxY, '>', 0, gocui.ColorBlack)
+// }
+
 type ActionFunc func(*State, string)
 
 // enterActions is the actions that can be done when KeyEnter is pressed
 // (outside of modeEscape), based on the mode.
-var enterActions = map[UIMode]ActionFunc{
+var enterActions = [modeMax]ActionFunc{
 	modeInsert:    enterActionSendMessage,
 	modeOverwrite: enterActionSendMessage,
 	modeConnect:   enterActionConnect,
@@ -303,10 +398,6 @@ func escEditor(pSt *State, v *gocui.View, key gocui.Key, ch rune, mod gocui.Modi
 
 	switch ch {
 	case 'c':
-		if pSt.WsIsOpen() {
-			pSt.Error(errors.New("You need to close the connection before starting a new one: <ESC>q"))
-			return
-		}
 		pSt.Mode = modeConnect
 		return
 	case 'p':
@@ -365,15 +456,16 @@ func escEditor(pSt *State, v *gocui.View, key gocui.Key, ch rune, mod gocui.Modi
 }
 
 const welcomeScreen = `
-                claws %s
-          Awesome WebSocket CLient
 
-    C-c           to quit
-    <ESC>c        to write an URL of a
-                  websocket and connect
-    <ESC>q        to close the websocket
-    <ESC>p        set ping interval in seconds
-    <UP>/<DOWN>   move through your history
+                  claws %s
+           Awesome WebSocket Client
 
-           https://howl.moe/claws
+  <Ctrl>-c      quit
+  <Esc>c        connect to specified websocket
+  <Esc>q        close websocket
+  <Esc>p        set ping interval (in seconds)
+  <Up>/<Down>   navigate history
+
+
+            https://howl.moe/claws
 `

@@ -127,18 +127,26 @@ func (s *State) SetPingInterval(nSecs int) {
 	s.wsConn.SetPingInterval(nSecs)
 }
 
-func (s *State) WsSendMsg(msg string) {
-
-	if s.WsIsOpen() {
-		s.wsConn.Write(WsMsg{
-			Type: websocket.TextMessage,
-			Msg:  []byte(msg),
-		})
-	}
+func (s *State) WsSendMsg(msg string) bool {
+	return s.wsConn.Write(WsMsg{
+		Type: websocket.TextMessage,
+		Msg:  []byte(msg),
+	})
 }
 
-func (s *State) WsIsOpen() bool {
-	return s.wsConn.IsOpen()
+type WsInfo struct {
+	IsOpen   bool
+	Url      string
+	Settings SettingsBase
+}
+
+func (s *State) GetWsInfo() WsInfo {
+
+	return WsInfo{
+		IsOpen:   s.wsConn.IsOpen(),
+		Url:      s.wsConn.URL(),
+		Settings: s.Settings.Clone(),
+	}
 }
 
 func (s *State) WsClose() []error {
@@ -195,6 +203,8 @@ func (s *State) DisplayFromServer(M WsMsg) {
 		return
 	}
 
+	// TODO: cmdline flags for HTTP headers to send with websocket connect
+	// TODO: status bar for app state
 	// TODO: persistent pipes?
 	oSet := s.Settings.Clone()
 	res, err := s.pipe(M.Msg, "in", oSet.Pipe.In)
@@ -265,6 +275,10 @@ func (s *State) printToOut(
 
 	s.ExecuteFunc(func(*gocui.Gui) error {
 
+		if s.Writer == nil {
+			return nil
+		}
+
 		// TIMESTAMP, NOT INDENTED
 		bHasTs := len(szTs) > 0
 		if bHasTs {
@@ -281,10 +295,10 @@ func (s *State) printToOut(
 				}
 			}
 
-			const INDENT = "  "
+			const indentPrefix = "  "
 			sLines := strings.Split(str, "\n")
 			for _, szLine := range sLines {
-				if _, e := f(s.Writer, INDENT+szLine+"\n"); e != nil {
+				if _, e := f(s.Writer, indentPrefix+szLine+"\n"); e != nil {
 					return e
 				}
 			}
