@@ -74,7 +74,7 @@ func (s *State) StartConnection(url string) {
 	var E error
 	defer func() {
 		if E != nil {
-			s.Error(E)
+			s.PrintError(E)
 		}
 	}()
 
@@ -91,17 +91,17 @@ func (s *State) StartConnection(url string) {
 
 	// TODO: channel into editor message pump?
 	s.wsConn.FnDebug = func(v string) {
-		s.Debug(v)
+		s.PrintDebug(v)
 	}
 
 	fnWsReadmsg := func(M *WsMsg, E error) {
 
 		if E != nil {
-			s.Error(E)
+			s.PrintError(E)
 		}
 
 		if M != nil {
-			s.DisplayFromServer(*M)
+			s.PrintFromPeer(*M)
 		}
 	}
 
@@ -112,7 +112,7 @@ func (s *State) StartConnection(url string) {
 		fnWsReadmsg,
 	)
 	for _, E := range sErrs {
-		s.Error(E)
+		s.PrintError(E)
 	}
 
 	s.ConnectionStarted = time.Now()
@@ -160,46 +160,46 @@ var (
 	printServer = color.New(color.FgWhite).Fprint
 )
 
-// Debug prints debug information to the Writer, using light blue.
-func (s *State) Debug(x string) {
+// PrintDebug prints debug information to the Writer, using light blue.
+func (s *State) PrintDebug(x string) {
 	s.printToOut(x, false, printDebug)
 }
 
-// Error prints an error to the Writer, using red.
-func (s *State) Error(x error) {
+// PrintError prints an error to the Writer, using red.
+func (s *State) PrintError(x error) {
 	if x != nil {
 		s.printToOut(x.Error(), false, printError)
 	}
 }
 
 // prints user-provided messages to the Writer, using green.
-func (s *State) DisplayInputFromUser(x string) {
+func (s *State) PrintFromUser(x string) {
 
 	oSet := s.Settings.Clone()
 
 	res, err := s.pipe([]byte(x), "out", oSet.Pipe.Out)
 	if err != nil {
-		s.Error(err)
+		s.PrintError(err)
 		if len(bytes.TrimSpace(res)) == 0 {
 			return
 		}
 	}
 
-	s.printToOut(string(res), true, printUser)
+	s.printToOut(string(res), false, printUser)
 }
 
 // prints server-returned messages to the Writer, using white.
-func (s *State) DisplayFromServer(M WsMsg) {
+func (s *State) PrintFromPeer(M WsMsg) {
 
 	switch M.Type {
 	case websocket.PingMessage:
-		s.Debug("<PING MSG>")
+		s.PrintDebug("<PING MSG>")
 		return
 	case websocket.PongMessage:
-		s.Debug("<PONG MSG>")
+		s.PrintDebug("<PONG MSG>")
 		return
 	case websocket.CloseMessage:
-		s.Debug("<CLOSE MSG>")
+		s.PrintDebug("<CLOSE MSG>")
 		return
 	}
 
@@ -209,7 +209,7 @@ func (s *State) DisplayFromServer(M WsMsg) {
 	oSet := s.Settings.Clone()
 	res, err := s.pipe(M.Msg, "in", oSet.Pipe.In)
 	if err != nil {
-		s.Error(err)
+		s.PrintError(err)
 		if len(bytes.TrimSpace(res)) == 0 {
 			return
 		}
@@ -296,20 +296,11 @@ func (s *State) printToOut(
 			}
 
 			const indentPrefix = "  "
-			sLines := strings.Split(str, "\n")
-			for _, szLine := range sLines {
-				if _, e := f(s.Writer, indentPrefix+szLine+"\n"); e != nil {
-					return e
-				}
-			}
-
-		} else {
-
-			if _, e := f(s.Writer, str+"\n"); e != nil {
-				return e
-			}
+			_, e := f(s.Writer, indentPrefix+strings.ReplaceAll(str, "\n", "\n"+indentPrefix)+"\n")
+			return e
 		}
 
-		return nil
+		_, e := f(s.Writer, str+"\n")
+		return e
 	})
 }

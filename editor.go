@@ -312,7 +312,7 @@ func enterActionSetPing(pSt *State, buf string) {
 func enterActionSendMessage(pSt *State, buf string) {
 
 	if strings.TrimSpace(buf) != "" {
-		pSt.DisplayInputFromUser(buf)
+		pSt.PrintFromUser(buf)
 		pSt.WsSendMsg(buf)
 	}
 }
@@ -406,10 +406,10 @@ func escEditor(pSt *State, v *gocui.View, key gocui.Key, ch rune, mod gocui.Modi
 	case 'q':
 		if err := pSt.WsClose(); len(err) > 0 {
 			for _, e := range err {
-				pSt.Error(e)
+				pSt.PrintError(e)
 			}
 		}
-		pSt.Debug("WebSocket closed (use C-c to quit)")
+		pSt.PrintDebug("WebSocket closed (use C-c to quit)")
 		return
 	case 'i':
 		// goes into insert mode
@@ -420,13 +420,13 @@ func escEditor(pSt *State, v *gocui.View, key gocui.Key, ch rune, mod gocui.Modi
 		pSt.Settings.JSONFormatting = !pSt.Settings.JSONFormatting
 		err := pSt.Settings.Update("JSONFormatting")
 		if err != nil {
-			pSt.Error(err)
+			pSt.PrintError(err)
 		}
 		e := "disabled"
 		if pSt.Settings.JSONFormatting {
 			e = "enabled"
 		}
-		pSt.Debug("JSON formatting " + e)
+		pSt.PrintDebug("JSON formatting " + e)
 	case 't':
 		// toggle timestamps
 		if pSt.Settings.Timestamp == "" {
@@ -436,19 +436,19 @@ func escEditor(pSt *State, v *gocui.View, key gocui.Key, ch rune, mod gocui.Modi
 		}
 		err := pSt.Settings.Update("Timestamp")
 		if err != nil {
-			pSt.Error(err)
+			pSt.PrintError(err)
 		}
 		e := "disabled"
 		if pSt.Settings.Timestamp != "" {
 			e = "enabled"
 		}
-		pSt.Debug("Timestamps " + e)
+		pSt.PrintDebug("Timestamps " + e)
 	case 'R':
 		// overwrite mode
 		pSt.Mode = modeOverwrite
 		return
 	default:
-		pSt.Debug("No action for key '" + string(ch) + "'")
+		pSt.PrintDebug("No action for key '" + string(ch) + "'")
 		return
 	}
 

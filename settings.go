@@ -38,19 +38,9 @@ type SettingsBase struct {
 	}
 }
 
-// persistent information about the usage of claws
-type Settings struct {
-	SettingsBase
-	sync.RWMutex `json:"-"`
-}
+func (s *SettingsBase) Clone() SettingsBase {
 
-// for goroutine-safe read access to settings
-func (s *Settings) Clone() SettingsBase {
-
-	s.RLock()
-	defer s.RUnlock()
-
-	ret := s.SettingsBase
+	ret := *s
 
 	fnCopy := func(dst *[]string, src []string) {
 		if src == nil {
@@ -64,6 +54,20 @@ func (s *Settings) Clone() SettingsBase {
 	fnCopy(&ret.Pipe.Out, s.Pipe.Out)
 
 	return ret
+}
+
+// persistent information about the usage of claws
+type Settings struct {
+	SettingsBase
+	sync.RWMutex `json:"-"`
+}
+
+// for goroutine-safe read access to settings
+func (s *Settings) Clone() SettingsBase {
+
+	s.RLock()
+	defer s.RUnlock()
+	return s.SettingsBase.Clone()
 }
 
 // loads settings from ~/.config/claws.json
