@@ -153,13 +153,13 @@ var (
 
 // PrintDebug prints debug information to the Writer, using light blue.
 func (s *State) PrintDebug(x string) {
-	s.printToOut(x, false, printDebug)
+	s.printToOut(x, s.getTimestamp("=="), false, printDebug)
 }
 
 // PrintError prints an error to the Writer, using red.
 func (s *State) PrintError(x error) {
 	if x != nil {
-		s.printToOut(x.Error(), false, printError)
+		s.printToOut(x.Error(), s.getTimestamp("!!"), false, printError)
 	}
 }
 
@@ -175,7 +175,7 @@ func (s *State) PrintFromUser(x string) {
 		}
 	}
 
-	s.printToOut(string(res), false, printUser)
+	s.printToOut(string(res), s.getTimestamp("=>"), true, printUser)
 }
 
 // prints server-returned messages to the Writer, using white.
@@ -215,7 +215,13 @@ func (s *State) PrintFromPeer(msg WsMsg) {
 		szText = strings.TrimSuffix(string(res), "\n")
 	}
 
-	s.printToOut(szText, true, printServer)
+	s.printToOut(szText, s.getTimestamp("<="), true, printServer)
+}
+
+// getTimestamp returns the settings' timestamp,
+// replacing "=>" with symbol
+func (s *State) getTimestamp(symbol string) string {
+	return strings.Replace(s.Settings.Clone().Timestamp, "=>", symbol, -1)
 }
 
 var (
@@ -245,6 +251,7 @@ func (s *State) pipe(data []byte, t string, command []string) ([]byte, error) {
 
 func (s *State) printToOut(
 	str string,
+	ts string,
 	bIndent bool,
 	f func(io.Writer, ...interface{}) (int, error),
 ) {
@@ -254,9 +261,8 @@ func (s *State) printToOut(
 	defer s.writerLock.Unlock()
 
 	var szTs string
-	oSet := s.Settings.Clone()
-	if len(oSet.Timestamp) > 0 {
-		szTs = time.Now().Format(oSet.Timestamp)
+	if len(ts) > 0 {
+		szTs = time.Now().Format(ts)
 	}
 
 	s.ExecuteFunc(func(*gocui.Gui) error {
@@ -270,18 +276,12 @@ func (s *State) printToOut(
 			if _, e := f(s.Writer, szTs); e != nil {
 				return e
 			}
-		}
 
-		if bIndent {
-			if bHasTs {
-				if _, e := f(s.Writer, "\n"); e != nil {
-					return e
-				}
+			if bIndent {
+				const indentPrefix = "  "
+				_, e := f(s.Writer, "\n"+indentPrefix+strings.ReplaceAll(str, "\n", "\n"+indentPrefix)+"\n")
+				return e
 			}
-
-			const indentPrefix = "  "
-			_, e := f(s.Writer, indentPrefix+strings.ReplaceAll(str, "\n", "\n"+indentPrefix)+"\n")
-			return e
 		}
 
 		_, e := f(s.Writer, str+"\n")

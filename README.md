@@ -76,7 +76,10 @@ Note that the path to the file is the same also on Windows.
 * **Info:** this field is used to redirect readers to this documentation file.
 * **JSONFormatting:** either true or false, depending on whether JSON formatting
   is enabled.
-* **Timestamp:** a timestamp with which all messages to the console should be prefixed. The defaults can be toggled using the `t` key in esc mode, although you can also use your own prefix, following [Go's system of formatting dates](https://golang.org/pkg/time/#Time.Format). The default values are an empty string `""` or `"2006-01-02 15:04:05 "`.
+* **Timestamp:** a timestamp with which all messages to the console should be prefixed.
+  The defaults can be toggled using the `t` key in esc mode, although you can also use your own prefix,
+  following [Go's system of formatting dates](https://golang.org/pkg/time/#Time.Format).
+  The default values are an empty string `""` or `"=> 2006-01-02 15:04:05 "`.[^1]
 * **LastWebsocketURL:** URL of the last websocket you connected to. Used when connecting using the `c` key without specifying an URL.
 * **LastActions:** 50 most recent messages you sent to the console, used for seeking through history using up and down.
 * **PingSeconds:** Interval for sending websocket ping messages to the peer.  Disabled if <= 0.
@@ -113,3 +116,9 @@ The sky is the limit here, so you can really do anything you can think of. Here 
 ## Contributing
 
 Claws is mostly feature-complete, though we have something that might interest you on our [issue list](https://github.com/thehowl/claws/issues). If, instead, you're interested in reporting a bug or asking for a new feature, you can create a new [issue](https://github.com/thehowl/claws/issues/new). There are no real contribution guidelines, but try to write some good Go code and use `go fmt` :).
+
+[^1]: The Timestamp is formatted also according to the type of message being
+  sent. Namely, the `=>` in the default format is kept intact when sending
+  messages to the server, while it is replaced with `<=` when receiving
+  messages. Equivalent values are `==` for debug-level logging, and "!!" for
+  errors reporting. Each of these is also signaled by the colour of the message.

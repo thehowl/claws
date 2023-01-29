@@ -357,7 +357,7 @@ func escEditor(pSt *State, v *gocui.View, key gocui.Key, ch rune, mod gocui.Modi
 	case 't':
 		// toggle timestamps
 		if pSt.Settings.Timestamp == "" {
-			pSt.Settings.Timestamp = "2006-01-02 15:04:05 "
+			pSt.Settings.Timestamp = "=> 2006-01-02 15:04:05 "
 		} else {
 			pSt.Settings.Timestamp = ""
 		}
