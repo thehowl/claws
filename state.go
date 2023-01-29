@@ -39,12 +39,12 @@ type State struct {
 	Settings Settings
 }
 
-// adds an action to LastActions
+// PushAction adds an action to LastActions
 func (s *State) PushAction(act string) error {
 	return s.Settings.PushAction(act)
 }
 
-// changes the ActionIndex and returns the value at the specified index.
+// BrowseActions changes the ActionIndex and returns the value at the specified index.
 // move is the number of elements to move (negatives go into more recent history,
 // 0 returns the current element, positives go into older history)
 func (s *State) BrowseActions(move int) string {
@@ -180,8 +180,8 @@ func (s *State) PrintFromUser(x string) {
 }
 
 // prints server-returned messages to the Writer, using white.
-func (s *State) PrintFromPeer(M WsMsg) {
-	switch M.Type {
+func (s *State) PrintFromPeer(msg WsMsg) {
+	switch msg.Type {
 	case websocket.PingMessage:
 		s.PrintDebug("<PING MSG>")
 		return
@@ -194,10 +194,9 @@ func (s *State) PrintFromPeer(M WsMsg) {
 	}
 
 	// TODO: cmdline flags for HTTP headers to send with websocket connect
-	// TODO: status bar for app state
 	// TODO: persistent pipes?
 	oSet := s.Settings.Clone()
-	res, err := s.pipe(M.Msg, "in", oSet.Pipe.In)
+	res, err := s.pipe(msg.Msg, "in", oSet.Pipe.In)
 	if err != nil {
 		s.PrintError(err)
 		if len(bytes.TrimSpace(res)) == 0 {
@@ -206,7 +205,7 @@ func (s *State) PrintFromPeer(M WsMsg) {
 	}
 
 	var szText string
-	switch M.Type {
+	switch msg.Type {
 	case websocket.BinaryMessage:
 		szText = strings.TrimSuffix(hex.Dump(res), "\n")
 
@@ -266,7 +265,7 @@ func (s *State) printToOut(
 			return nil
 		}
 
-		// TIMESTAMP, NOT INDENTED
+		// Timestamp, not indented.
 		bHasTs := len(szTs) > 0
 		if bHasTs {
 			if _, e := f(s.Writer, szTs); e != nil {
