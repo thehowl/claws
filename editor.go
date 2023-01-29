@@ -69,10 +69,10 @@ func NewLayoutFunc(pSt *State) LayoutFunc {
 				hX = len(line)
 			}
 		}
-		hX /= 2
+		hX = (hX / 2) + 3
 
 		// View: "Welcome" Message
-		if v, err := pGui.SetView("help", (maxX/2)-hX, (maxY/2)-hY-1, (maxX/2)+hX+3, (maxY/2)+hY); err != nil {
+		if v, err := pGui.SetView("help", (maxX/2)-hX, (maxY/2)-hY-1, (maxX/2)+hX, (maxY/2)+hY); err != nil {
 			if err != gocui.ErrUnknownView {
 				return err
 			}
