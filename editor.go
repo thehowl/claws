@@ -209,14 +209,14 @@ func setText(v *gocui.View, text string) {
 	v.SetCursor(len(text), 0)
 }
 
-// moveAhead displays the next 10 characters when moving backwards,
-// in order to see where we're moving or what we're deleting.
+// moveAhead makes sure there are at least 8 characters visibile to the left
+// of the cursor when moving backwards, mostly useful when deleting text.
 func moveAhead(v *gocui.View) {
 	cX, _ := v.Cursor()
 	oX, _ := v.Origin()
-	if cX < 10 && oX > 0 {
-		newOX := oX - 10
-		forward := 10
+	if cX < 8 && oX > 0 {
+		newOX := oX - 1
+		forward := 1
 		if newOX < 0 {
 			forward += newOX
 			newOX = 0
