@@ -228,10 +228,7 @@ func moveAhead(v *gocui.View) {
 }
 
 func enterActionSetPing(pSt *State, buf string) {
-	secs, err := strconv.Atoi(strings.TrimSpace(buf))
-	if err != nil {
-		secs = 0
-	}
+	secs, _ := strconv.Atoi(strings.TrimSpace(buf))
 
 	pSt.SetPingInterval(secs)
 

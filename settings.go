@@ -8,8 +8,6 @@ import (
 	"os/user"
 	"strings"
 	"sync"
-
-	"github.com/fatih/structs"
 )
 
 func getConfigFolder() (string, error) {
@@ -113,35 +111,11 @@ func (s *Settings) Save() error {
 
 // applies ONLY specified fields of current settings to claws.json
 func (s *Settings) Update(fields ...string) error {
-	oPrev, err := LoadSettings()
-	if err != nil {
-		return err
-	}
-
+	// TODO: rewrite settings.go to make everything 100% atomic and better
+	// structured.
 	s.RLock()
 	defer s.RUnlock()
-
-	strDst := structs.New(&oPrev)
-	strSrc := structs.New(s)
-
-	bDirty := false
-	for _, fldName := range fields {
-		if fldDst, ok := strDst.FieldOk(fldName); ok {
-			fldSrc := strSrc.Field(fldName)
-			err = fldDst.Set(fldSrc.Value())
-			if err != nil {
-				return err
-			}
-
-			bDirty = true
-		}
-	}
-
-	if bDirty {
-		return oPrev.Save()
-	}
-
-	return nil
+	return s.Save()
 }
 
 // adds an action to LastActions
