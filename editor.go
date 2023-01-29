@@ -91,11 +91,10 @@ func NewLayoutFunc(pSt *State) LayoutFunc {
 
 		modeBox(pSt, pGui)
 
-		// TODO: "out" notice of new ping interval
-		// TODO: change > to : in command mode
-
 		if !pSt.FirstDrawDone {
-			go pSt.StartConnection("")
+			if pSt.Settings.LastWebsocketURL != "" {
+				pSt.PrintDebug(fmt.Sprintf("The last URL you connected to was %q. Type <Esc>c<Enter> to connect.", pSt.Settings.LastWebsocketURL))
+			}
 			pSt.FirstDrawDone = true
 		}
 
@@ -231,6 +230,11 @@ func enterActionSetPing(pSt *State, buf string) {
 	secs, _ := strconv.Atoi(strings.TrimSpace(buf))
 
 	pSt.SetPingInterval(secs)
+	if secs > 0 {
+		pSt.PrintDebug(fmt.Sprintf("Ping interval set to %d seconds.", secs))
+	} else {
+		pSt.PrintDebug("Ping disabled.")
+	}
 
 	pSt.Mode = modeInsert
 }
@@ -383,7 +387,7 @@ const welcomeScreen = `
                   claws %s
            Awesome WebSocket Client
 
-  <Ctrl>-c      quit
+  Ctrl-C        quit
   <Esc>c        connect to specified websocket
   <Esc>q        close websocket
   <Esc>p        set ping interval (in seconds)

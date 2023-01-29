@@ -79,7 +79,6 @@ func (s *State) StartConnection(url string) {
 	if len(url) > 0 {
 		s.Settings.LastWebsocketURL = url
 		s.Settings.Update("LastWebsocketURL")
-		return
 	}
 
 	if len(s.Settings.LastWebsocketURL) == 0 {
