@@ -48,7 +48,6 @@ func (s *State) PushAction(act string) error {
 // move is the number of elements to move (negatives go into more recent history,
 // 0 returns the current element, positives go into older history)
 func (s *State) BrowseActions(move int) string {
-
 	oSet := s.Settings.Clone()
 
 	nActions := len(oSet.LastActions)
@@ -69,12 +68,10 @@ func (s *State) BrowseActions(move int) string {
 
 // StartConnection begins a WebSocket connection to url.
 func (s *State) StartConnection(url string) {
-
-	// REPORT ERROR IF SET
-	var E error
+	var err error
 	defer func() {
-		if E != nil {
-			s.PrintError(E)
+		if err != nil {
+			s.PrintError(err)
 		}
 	}()
 
@@ -94,14 +91,12 @@ func (s *State) StartConnection(url string) {
 		s.PrintDebug(v)
 	}
 
-	fnWsReadmsg := func(M *WsMsg, E error) {
-
-		if E != nil {
-			s.PrintError(E)
+	fnWsReadmsg := func(msg *WsMsg, err error) {
+		if err != nil {
+			s.PrintError(err)
 		}
-
-		if M != nil {
-			s.PrintFromPeer(*M)
+		if msg != nil {
+			s.PrintFromPeer(*msg)
 		}
 	}
 
@@ -111,16 +106,14 @@ func (s *State) StartConnection(url string) {
 		oSet.PingSeconds,
 		fnWsReadmsg,
 	)
-	for _, E := range sErrs {
-		s.PrintError(E)
+	for _, err := range sErrs {
+		s.PrintError(err)
 	}
 
 	s.ConnectionStarted = time.Now()
 }
 
 func (s *State) SetPingInterval(nSecs int) {
-
-	// CHANGE IN SETTINGS EVEN WHEN DISCONNECTED
 	s.Settings.PingSeconds = nSecs
 	s.Settings.Update("PingSeconds")
 
@@ -141,7 +134,6 @@ type WsInfo struct {
 }
 
 func (s *State) GetWsInfo() WsInfo {
-
 	return WsInfo{
 		IsOpen:   s.wsConn.IsOpen(),
 		Url:      s.wsConn.URL(),
@@ -174,7 +166,6 @@ func (s *State) PrintError(x error) {
 
 // prints user-provided messages to the Writer, using green.
 func (s *State) PrintFromUser(x string) {
-
 	oSet := s.Settings.Clone()
 
 	res, err := s.pipe([]byte(x), "out", oSet.Pipe.Out)
@@ -190,7 +181,6 @@ func (s *State) PrintFromUser(x string) {
 
 // prints server-returned messages to the Writer, using white.
 func (s *State) PrintFromPeer(M WsMsg) {
-
 	switch M.Type {
 	case websocket.PingMessage:
 		s.PrintDebug("<PING MSG>")
@@ -235,7 +225,6 @@ var (
 )
 
 func (s *State) pipe(data []byte, t string, command []string) ([]byte, error) {
-
 	if len(command) < 1 {
 		return data, nil
 	}
@@ -261,7 +250,6 @@ func (s *State) printToOut(
 	bIndent bool,
 	f func(io.Writer, ...interface{}) (int, error),
 ) {
-
 	// NOTE: mutexed to sequentialize whole writes between
 	//       UI goroutine, read pump, & write pump
 	s.writerLock.Lock()
@@ -274,7 +262,6 @@ func (s *State) printToOut(
 	}
 
 	s.ExecuteFunc(func(*gocui.Gui) error {
-
 		if s.Writer == nil {
 			return nil
 		}
@@ -288,7 +275,6 @@ func (s *State) printToOut(
 		}
 
 		if bIndent {
-
 			if bHasTs {
 				if _, e := f(s.Writer, "\n"); e != nil {
 					return e

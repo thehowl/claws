@@ -13,7 +13,6 @@ import (
 )
 
 func getConfigFolder() (string, error) {
-
 	u, err := user.Current()
 	if err != nil {
 		return "", err
@@ -39,7 +38,6 @@ type SettingsBase struct {
 }
 
 func (s *SettingsBase) Clone() SettingsBase {
-
 	ret := *s
 
 	fnCopy := func(dst *[]string, src []string) {
@@ -64,38 +62,35 @@ type Settings struct {
 
 // for goroutine-safe read access to settings
 func (s *Settings) Clone() SettingsBase {
-
 	s.RLock()
 	defer s.RUnlock()
 	return s.SettingsBase.Clone()
 }
 
 // loads settings from ~/.config/claws.json
-func LoadSettings() (oSet Settings, E error) {
-
-	folder, E := getConfigFolder()
-	if E != nil {
+func LoadSettings() (oSet Settings, err error) {
+	folder, err := getConfigFolder()
+	if err != nil {
 		return
 	}
 
-	f, E := os.Open(folder + "claws.json")
-	if E != nil {
-		// silently ignore ErrNotExist
-		if os.IsNotExist(E) {
-			E = nil
+	f, err := os.Open(folder + "claws.json")
+	if err != nil {
+		// silently ignore NotExist
+		if os.IsNotExist(err) {
+			err = nil
 			return
 		}
 		return
 	}
 	defer f.Close()
 
-	E = json.NewDecoder(f).Decode(&oSet.SettingsBase)
+	err = json.NewDecoder(f).Decode(&oSet.SettingsBase)
 	return
 }
 
 // saves settings to ~/.config/claws.json
 func (s *Settings) Save() error {
-
 	folder, err := getConfigFolder()
 	if err != nil {
 		return err
@@ -118,10 +113,9 @@ func (s *Settings) Save() error {
 
 // applies ONLY specified fields of current settings to claws.json
 func (s *Settings) Update(fields ...string) error {
-
-	oPrev, E := LoadSettings()
-	if E != nil {
-		return E
+	oPrev, err := LoadSettings()
+	if err != nil {
+		return err
 	}
 
 	s.RLock()
@@ -132,13 +126,11 @@ func (s *Settings) Update(fields ...string) error {
 
 	bDirty := false
 	for _, fldName := range fields {
-
 		if fldDst, ok := strDst.FieldOk(fldName); ok {
-
 			fldSrc := strSrc.Field(fldName)
-			E = fldDst.Set(fldSrc.Value())
-			if E != nil {
-				return E
+			err = fldDst.Set(fldSrc.Value())
+			if err != nil {
+				return err
 			}
 
 			bDirty = true
@@ -154,7 +146,6 @@ func (s *Settings) Update(fields ...string) error {
 
 // adds an action to LastActions
 func (s *Settings) PushAction(act string) error {
-
 	s.Lock()
 	s.LastActions = append([]string{act}, s.LastActions...)
 	if len(s.LastActions) > 100 {
@@ -168,10 +159,8 @@ func (s *Settings) PushAction(act string) error {
 // displays CLI `--help` information
 // writes specified flags/opts into settings
 func (pSet *Settings) ParseFlags() error {
-
-	// HELP MESSAGE
+	// Help message
 	flag.Usage = func() {
-
 		fmt.Fprint(os.Stderr, cliHelpPrefix)
 		flag.PrintDefaults()
 		fmt.Fprint(os.Stderr, cliHelpSuffix)
@@ -183,7 +172,7 @@ func (pSet *Settings) ParseFlags() error {
 
 	flag.Parse()
 
-	// GRAB WEBSOCKET URL IF PRESENTED
+	// Use WebSocket URL if given.
 	sArgs := flag.Args()
 	for _, wsurl := range sArgs {
 		wsurl := strings.TrimSpace(wsurl)

@@ -11,11 +11,9 @@ import (
 type LayoutFunc func(*gocui.Gui) error
 
 func NewLayoutFunc(pSt *State) LayoutFunc {
-
 	fnEditor := NewEditorFunc(pSt)
 
 	return func(pGui *gocui.Gui) error {
-
 		// Set when doing a double-esc
 		if pSt.ShouldQuit {
 			return gocui.ErrQuit
@@ -156,7 +154,6 @@ func NewLayoutFunc(pSt *State) LayoutFunc {
 }
 
 func modeBox(pSt *State, g *gocui.Gui) {
-
 	maxX, maxY := g.Size()
 
 	for i := 0; i < maxX; i++ {
@@ -197,9 +194,7 @@ var enterActions = [modeMax]ActionFunc{
 type EditorFunc func(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier)
 
 func NewEditorFunc(pSt *State) EditorFunc {
-
 	return func(v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
-
 		pSt.HideHelp = true
 
 		if pSt.Mode == modeEscape {
@@ -298,9 +293,8 @@ func moveAhead(v *gocui.View) {
 }
 
 func enterActionSetPing(pSt *State, buf string) {
-
-	secs, E := strconv.Atoi(strings.TrimSpace(buf))
-	if E != nil {
+	secs, err := strconv.Atoi(strings.TrimSpace(buf))
+	if err != nil {
 		secs = 0
 	}
 
@@ -310,7 +304,6 @@ func enterActionSetPing(pSt *State, buf string) {
 }
 
 func enterActionSendMessage(pSt *State, buf string) {
-
 	if strings.TrimSpace(buf) != "" {
 		pSt.PrintFromUser(buf)
 		pSt.WsSendMsg(buf)
@@ -318,7 +311,6 @@ func enterActionSendMessage(pSt *State, buf string) {
 }
 
 func enterActionConnect(pSt *State, buf string) {
-
 	pSt.Mode = modeInsert
 	go pSt.StartConnection(buf)
 }
@@ -332,7 +324,6 @@ func moveDown(v *gocui.View) {
 
 // escEditor handles keys when esc has been pressed.
 func escEditor(pSt *State, v *gocui.View, key gocui.Key, ch rune, mod gocui.Modifier) {
-
 	switch key {
 	case gocui.KeyEsc:
 		// silently ignore - we're already in esc mode!

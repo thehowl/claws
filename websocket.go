@@ -18,11 +18,10 @@ type WebSocket struct {
 	pingInterval time.Duration
 	url          string
 	sync.RWMutex // NOTE: for update private props
+	// Used for reporting debug messages.
+	FnDebug func(string)
 
 	chWriEnd <-chan error
-
-	// REPORTING FUNCS
-	FnDebug func(string)
 }
 
 func (w *WebSocket) Debug(v string) {
@@ -33,7 +32,6 @@ func (w *WebSocket) Debug(v string) {
 
 // returns the URL of the WebSocket.
 func (w *WebSocket) URL() string {
-
 	w.RLock()
 	defer w.RUnlock()
 
@@ -42,7 +40,6 @@ func (w *WebSocket) URL() string {
 
 // writes a message to the WebSocket
 func (w *WebSocket) Write(msg WsMsg) bool {
-
 	w.RLock()
 	defer w.RUnlock()
 
@@ -55,7 +52,6 @@ func (w *WebSocket) Write(msg WsMsg) bool {
 }
 
 func (pWs *WebSocket) SetPingInterval(secs int) {
-
 	pWs.Lock()
 	defer pWs.Unlock()
 
@@ -70,15 +66,12 @@ type WsMsg struct {
 type WsReaderFunc func(*WsMsg, error)
 
 func readPump(pConn *websocket.Conn, fnRdr WsReaderFunc) error {
-
 	var err error
 
 	for {
-
 		var msg WsMsg
 		msg.Type, msg.Msg, err = pConn.ReadMessage()
 		if err != nil {
-
 			// hide i/o after close error, since that's a typical
 			// way of ending this read loop
 			if errors.Is(err, net.ErrClosed) {
@@ -101,15 +94,13 @@ func readPump(pConn *websocket.Conn, fnRdr WsReaderFunc) error {
 func goWritePump(pConn *websocket.Conn, chPing <-chan time.Time) (
 	chWrite chan WsMsg, chExit chan error,
 ) {
-
 	chWrite = make(chan WsMsg, 128)
 	chExit = make(chan error)
 
 	go func() {
-
-		var E error
+		var err error
 		defer func() {
-			chExit <- E
+			chExit <- err
 		}()
 
 		for {
@@ -118,12 +109,12 @@ func goWritePump(pConn *websocket.Conn, chPing <-chan time.Time) (
 				if !open {
 					return
 				}
-				if E = pConn.WriteMessage(msg.Type, msg.Msg); E != nil {
+				if err = pConn.WriteMessage(msg.Type, msg.Msg); err != nil {
 					return
 				}
 
 			case <-chPing:
-				if E = pConn.WriteMessage(websocket.PingMessage, nil); E != nil {
+				if err = pConn.WriteMessage(websocket.PingMessage, nil); err != nil {
 					return
 				}
 			}
@@ -148,7 +139,6 @@ func (pWs *WebSocket) WsClose() []error {
 
 // NOTE: must be mutexed by caller (currently WsClose & WsOpen)
 func (pWs *WebSocket) closeAndClear() []error {
-
 	var eRet []error
 
 	// CLOSE OBJECTS
@@ -164,16 +154,16 @@ func (pWs *WebSocket) closeAndClear() []error {
 
 		// THIS INDIRECTLY CLOSES THE ReadPump
 		if pWs.conn != nil {
-			if E := pWs.conn.Close(); E != nil {
-				eRet = append(eRet, E)
+			if err := pWs.conn.Close(); err != nil {
+				eRet = append(eRet, err)
 			}
 		}
 	}
 
-	// BLOCK & COLLECT CHANNEL EXIT ERRORS
+	// Block and collect channel exit errors
 	if pWs.chWriEnd != nil {
-		if E := <-pWs.chWriEnd; E != nil {
-			eRet = append(eRet, E)
+		if err := <-pWs.chWriEnd; err != nil {
+			eRet = append(eRet, err)
 		}
 	}
 
@@ -202,12 +192,10 @@ func (w WebSocketResponseError) Error() string {
 
 // opens a new WebSocket connection to `url`.
 func (pWs *WebSocket) WsOpen(url string, nPingSeconds int, fnRdr WsReaderFunc) []error {
-
 	pWs.Lock()
 	defer pWs.Unlock()
 
 	if pWs.conn != nil {
-
 		// TODO: information message after setting ping duration
 		// TODO: debug replacement
 		pWs.Debug("Closing prior WebSocket connection")
@@ -229,7 +217,6 @@ func (pWs *WebSocket) WsOpen(url string, nPingSeconds int, fnRdr WsReaderFunc) [
 
 	// READ PUMP
 	go func() {
-
 		if e := readPump(conn, fnRdr); e != nil {
 			fnRdr(nil, e)
 		}
@@ -249,7 +236,6 @@ func (pWs *WebSocket) WsOpen(url string, nPingSeconds int, fnRdr WsReaderFunc) [
 
 // NOTE: must be mutexed by caller
 func (pWs *WebSocket) setPingTicker(secs int) {
-
 	if pWs.pingTicker == nil {
 		pWs.pingTicker = time.NewTicker(time.Hour)
 	}

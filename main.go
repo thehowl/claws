@@ -13,7 +13,6 @@ var (
 )
 
 func main() {
-
 	var err error
 	defer func() {
 		if err != nil {
