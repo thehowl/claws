@@ -30,18 +30,6 @@ func NewLayoutFunc(pSt *State) LayoutFunc {
 			v.Clear()
 		}
 
-		// NOTE: preliminary status bar impl
-		// var errView error
-		// vFlags, err := pGui.SetView("flags", -1, maxY-2, maxX, maxY)
-		// if err != nil {
-		// 	if err != gocui.ErrUnknownView {
-		// 		return err
-		// 	}
-		// 	vFlags.FgColor = gocui.ColorBlue
-		// 	vFlags.Frame = false
-		// 	vFlags.Editable = false
-		// }
-
 		// View: output for received messages (rest)
 		v, err := pGui.SetView("out", -1, -1, maxX, maxY-2)
 		if err != nil {
@@ -103,45 +91,7 @@ func NewLayoutFunc(pSt *State) LayoutFunc {
 
 		modeBox(pSt, pGui)
 
-		// NOTE: preliminary status bar impl
-		// ms := modeChars[pSt.Mode]
-		// vFlags.Clear()
-		// info := pSt.GetWsInfo()
-		// // TODO: honor BgColor for ms.Descr
-		// sParts := []string{ms.Descr}
-
-		// if info.IsOpen {
-		// 	sParts = append(sParts, info.Url)
-		// } else {
-		// 	sParts = append(sParts, "CLOSED")
-		// }
-
-		// ST := info.Settings
-		// if ST.PingSeconds > 0 {
-		// 	sParts = append(sParts, fmt.Sprintf("PNG=%ds", ST.PingSeconds))
-		// } else {
-		// 	sParts = append(sParts, "PNG=N")
-		// }
-
-		// if ST.JSONFormatting {
-		// 	sParts = append(sParts, "FMTJSON=Y")
-		// } else {
-		// 	sParts = append(sParts, "FMTJSON=N")
-		// }
-
-		// if len(ST.Timestamp) > 0 {
-		// 	sParts = append(sParts, "TS=Y")
-		// } else {
-		// 	sParts = append(sParts, "TS=N")
-		// }
-
-		// sLeft := strings.Join(sParts, " | ")
-
-		// vFlags.Write([]byte(sLeft))
-
 		// TODO: "out" notice of new ping interval
-		// TODO: don't indent when timestamps are disabled
-		// TODO: connection duration clock?
 		// TODO: change > to : in command mode
 
 		if !pSt.FirstDrawDone {
@@ -164,21 +114,6 @@ func modeBox(pSt *State, g *gocui.Gui) {
 	g.SetRune(0, maxY-1, ch.Char, gocui.ColorWhite|gocui.AttrBold, ch.BgColor)
 	g.SetRune(1, maxY-1, ' ', gocui.ColorBlack, 0)
 }
-
-// NOTE: preliminary status bar impl
-// func modeBox(pSt *State, pGui *gocui.Gui) {
-//
-// 	maxX, maxY := pGui.Size()
-//
-// 	for i := 0; i < maxX; i++ {
-// 		pGui.SetRune(i, maxY-3, '─', gocui.ColorWhite, gocui.ColorBlack)
-// 	}
-//
-// 	ch := modeChars[pSt.Mode]
-// 	maxY -= 2
-// 	pGui.SetRune(0, maxY, ch.Char, gocui.ColorWhite|gocui.AttrBold, ch.BgColor)
-// 	pGui.SetRune(1, maxY, '>', 0, gocui.ColorBlack)
-// }
 
 type ActionFunc func(*State, string)
 
